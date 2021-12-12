@@ -486,15 +486,5 @@ def main() :
     records = load_mjai_records(filename)
     mj2vec.process_records(records)
 
-    # print("PROGRESSION_FEATURE_OFFSETS:", PROGRESSION_FEATURE_OFFSETS)
-    # print("dump_s:", mj2vec.sparse2vec.dump())
-    # print("dump_s0:", mj2vec.sparse2vec.to_feature(0))
-
-    # print("dump_actions:", mj2vec.players2vec.progression_actions())
-
-    # print("dump_p0:", mj2vec.players2vec.progression_feature(0))
-    # print("dump_p1:", mj2vec.players2vec.progression_feature(1))
-    # print("dump_p2:", mj2vec.players2vec.progression_feature(2))
-
 if __name__ == '__main__':
     main()
