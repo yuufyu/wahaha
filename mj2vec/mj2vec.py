@@ -59,6 +59,18 @@ PROGRESSION_FEATURE_COUNT = OrderedDict([
 PROGRESSION_FEATURE_OFFSETS = feature_count_to_offset(PROGRESSION_FEATURE_COUNT, 1)
 PROGRESSION_FEATURE_PLAYER_OFFSET = PROGRESSION_FEATURE_OFFSETS["end"]
 
+POSSIBLE_FEATURE_COUNT = OrderedDict([
+    ("dahai_tsumogiri", 37),
+    ("dahai_tedasi"  , 37),
+    ("reach" , 1),
+    ("pon" , 37),
+    ("daiminkan" , 34),
+    ("ankan" , 34),
+    ("kakan" , 34),
+    ("nukidora" , 1),
+    ("end", 0)
+])
+
 @dataclass
 class PlayerElem :
     hand : list
@@ -119,28 +131,19 @@ def load_mjai_records(filename) :
     log_input_file.close()
     return records
 
-
-
 class Progression2Vec :
-    def __init__(self, player_id) :
-        self.player_id = player_id
+    def __init__(self) :
+        pass
         
-    def to_rel_seat(self, id) :
-        return ((id - self.player_id + 3) % 3)
+    def to_rel_seat(self, actor, player_id) :
+        return ((actor - player_id + 3) % 3)
 
-    # actor : abs id
-    def feature_num(self, type : str, actor, num = 0) :
-        assert num < PROGRESSION_FEATURE_COUNT[type], f"invalid num (type={type}, num={num})" 
-        offset = PROGRESSION_FEATURE_OFFSETS[type]
-        rel_actor_id = self.to_rel_seat(actor)
-        return (num + offset) + (PROGRESSION_FEATURE_PLAYER_OFFSET)* rel_actor_id
-
-    def to_feature(self) :
+    def to_feature(self, player_id) :
         progression = [0] # Begging of the Round
         for actionElem in self.action_list :
             assert actionElem.value < PROGRESSION_FEATURE_COUNT[actionElem.type], f"invalid num (type={actionElem.type}, value={actionElem.value})"
             offset = PROGRESSION_FEATURE_OFFSETS[actionElem.type]
-            rel_actor_id = self.to_rel_seat(actionElem.actor)
+            rel_actor_id = self.to_rel_seat(actionElem.actor, player_id)
             feature_value =  (actionElem.value + offset) + (PROGRESSION_FEATURE_PLAYER_OFFSET) * rel_actor_id
             progression.append(feature_value)
         return progression
@@ -220,24 +223,23 @@ class Players2Vec :
     def __init__(self) :
         self.mjlegal_client = MjaiLoader()
         self.possible_action_generator = PossibleActionGenerator()
-        self.players_progress = [] 
+        self.progression2vec = None
 
     def action(self, record) :
         self.mjlegal_client.action(record)
 
         action_type = record["type"]
         if action_type == "start_kyoku" :
-            self.players_progress = [Progression2Vec(i) for i in range(3)]
-        if len(self.players_progress) == 0 :
-            return
-        for progress in self.players_progress :
-            progress.action(record)
+            self.progression2vec = Progression2Vec()
+    
+        if self.progression2vec is not None :
+            self.progression2vec.action(record)
 
-    def progression_actions(self, player_id) :
-        return self.players_progress[player_id].action_list
+    def progression_actions(self) :
+        return self.progression2vec.action_list
 
     def progression_feature(self, player_id) :
-        return self.players_progress[player_id].to_feature()
+        return self.progression2vec.to_feature(player_id)
 
     def game_state_to_feature(self, player_id) :
         player_state = self.mjlegal_client.game.player_states[player_id]
@@ -303,17 +305,13 @@ class Sparse2Vec :
 
     def dump(self) :
         return self.game_elem.to_feature()
-        # return self.game_elem
 
 class Mj2Vec :
     def __init__(self) :
-        
         self.sparse2vec = Sparse2Vec()
         self.players2vec = Players2Vec()
-        
 
     def action(self, record) :
-        
         self.sparse2vec.action(record)
         self.players2vec.action(record)
 
@@ -334,9 +332,7 @@ def main() :
     print("PROGRESSION_FEATURE_OFFSETS:", PROGRESSION_FEATURE_OFFSETS)
     print("dump_s0:", mj2vec.sparse2vec.dump())
 
-    print("dump_p0:", mj2vec.players2vec.progression_actions(0))
-    print("dump_p1:", mj2vec.players2vec.progression_actions(1))
-    print("dump_p2:", mj2vec.players2vec.progression_actions(2))
+    print("dump_actions:", mj2vec.players2vec.progression_actions())
 
     print("dump_p0:", mj2vec.players2vec.progression_feature(0))
     print("dump_p1:", mj2vec.players2vec.progression_feature(1))
