@@ -196,6 +196,13 @@ class GameElem :
         features.sort()
         return features
 
+class Features :
+    uuid        : str = "uuid"
+    sparse      : list = None
+    progression : list = None
+    possible    : list = None
+    actual      : list = None
+
 TILE37_SUIT_OFFSET_TABLE = {"m" : 0, "p" : 10, "s" : 20, "z" : 29 }
 TILE37_LOOKUP_MJAI_PAI_NAME_TABLE = {'5mr': '0m', '5pr': '0p', '5sr': '0s', 'E': '1z', 'S': '2z', 'W': '3z', 'N': '4z', 'P': '5z', 'F': '6z', 'C': '7z'}
 
