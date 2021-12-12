@@ -212,7 +212,8 @@ def mjai_pai_to_tile37(mjai_str) :
     return tile37
 
 def mjai_pai_to_tile34(pai) :
-    return TilesUtil.tiles_to_tiles34([Tile.from_str(pai)])[0]
+    tile34 = TilesUtil.tiles_to_tiles34([Tile.from_str(pai)])
+    return tile34.index(1)
 
 # Calculate ranking by Mahjong rule
 def scores2ranks(scores) :
@@ -300,7 +301,7 @@ class Players2Vec :
         possible_actions = self.possible_action_generator.possible_game_actions(game_state)
         possible_mjai_json_actions = [json.dumps(action.to_mjai_json()) for action in possible_actions]
         possible_mjai_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
-        
+
         # player action
         possible_player_actions = []
         for mjai_action in possible_mjai_actions :
@@ -437,7 +438,7 @@ def main() :
     args = parser.parse_args()
     
     filename = args.mjson_filename
-    
+
     mj2vec = Mj2Vec()
     records = load_mjai_records(filename)
     for record in records :
