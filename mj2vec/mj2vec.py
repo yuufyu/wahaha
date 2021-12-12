@@ -5,7 +5,7 @@ import json
 import argparse
 import numpy as np
 import dataclasses
-from dataclasses import dataclass, asdict
+from dataclasses import InitVar, dataclass, asdict
 import re
 from enum import IntEnum, auto
 from collections import OrderedDict
@@ -63,6 +63,12 @@ PROGRESSION_FEATURE_PLAYER_OFFSET = PROGRESSION_FEATURE_OFFSETS["end"]
 class PlayerElem :
     hand : list
     tsumo : int = -1 
+
+@dataclass
+class ActionElem :
+    type : str
+    actor : int = 0
+    value : int = 0
 
 @dataclass
 class GameElem :
@@ -129,10 +135,27 @@ class Progression2Vec :
         rel_actor_id = self.to_rel_seat(actor)
         return (num + offset) + (PROGRESSION_FEATURE_PLAYER_OFFSET)* rel_actor_id
 
+    def to_feature(self) :
+        progression = [0] # Begging of the Round
+        for actionElem in self.action_list :
+            assert actionElem.value < PROGRESSION_FEATURE_COUNT[actionElem.type], f"invalid num (type={actionElem.type}, value={actionElem.value})"
+            offset = PROGRESSION_FEATURE_OFFSETS[actionElem.type]
+            rel_actor_id = self.to_rel_seat(actionElem.actor)
+            feature_value =  (actionElem.value + offset) + (PROGRESSION_FEATURE_PLAYER_OFFSET) * rel_actor_id
+            progression.append(feature_value)
+        return progression
+
+    def init_progress(self) :
+        self.action_list = []
+
+    def add_action(self, type : str, actor : int, value : int = 0) :
+        action = ActionElem(type = type, actor = actor, value = value)
+        self.action_list.append(action)
+
     def action(self, record) :
         action_type = record["type"]
         if action_type == "start_kyoku" :
-            self.progression = [0] # Begging of the round
+            self.init_progress()
         elif "actor" in record :
             actor_id = record["actor"]
             if action_type == "tsumo" :
@@ -166,39 +189,32 @@ class Progression2Vec :
     def dahai(self, actor, pai, tsumogiri) :
         tile37 = mjai_pai_to_tile37(pai)
         progression_type = "dahai_tsumogiri" if tsumogiri else "dahai_tedasi"
-        num = self.feature_num(progression_type, actor, tile37)
-        self.progression.append(num)
+        self.add_action(type = progression_type, actor = actor, value = tile37)
 
     def reach(self, actor) :
-        num = self.feature_num("reach", actor, 0)
-        self.progression.append(num)
+        self.add_action(type = "reach", actor = actor, value = 0)
     
     def pon(self, actor, pai, consumed) :
         pai_list = [pai] + consumed
         tile37_list = [mjai_pai_to_tile37(pai) for pai in pai_list]
         tile37 = min(tile37_list) # 赤ドラを含む場合は赤ドラ牌を選出する
-        num = self.feature_num("pon", actor, tile37)
-        self.progression.append(num)
+        self.add_action(type = "pon", actor = actor, value = tile37)
     
     def daiminkan(self, actor, pai) :
         tile34 = mjai_pai_to_tile34(pai)
-        num = self.feature_num("daiminkan", actor, tile34)
-        self.progression.append(num)
+        self.add_action(type = "daiminkan", actor = actor, value = tile34)
     
     def ankan(self, actor, consumed) :
         pai = consumed[0]
         tile34 = mjai_pai_to_tile34(pai)
-        num = self.feature_num("ankan", actor, tile34)
-        self.progression.append(num)
+        self.add_action(type = "ankan", actor = actor, value = tile34)
     
     def kakan(self, actor, pai) :
         tile34 = mjai_pai_to_tile34(pai)
-        num = self.feature_num("kakan", actor, tile34)
-        self.progression.append(num)
+        self.add_action(type = "kakan", actor = actor, value = tile34)
 
     def nukidora(self, actor) :
-        num = self.feature_num("nukidora", actor, 0)
-        self.progression.append(num)
+        self.add_action("nukidora", actor, 0)
 
 class Players2Vec :
     def __init__(self) :
@@ -217,8 +233,11 @@ class Players2Vec :
         for progress in self.players_progress :
             progress.action(record)
 
-    def progression(self, player_id) :
-        return self.players_progress[player_id].progression
+    def progression_actions(self, player_id) :
+        return self.players_progress[player_id].action_list
+
+    def progression_feature(self, player_id) :
+        return self.players_progress[player_id].to_feature()
 
     def game_state_to_feature(self, player_id) :
         player_state = self.mjlegal_client.game.player_states[player_id]
@@ -315,9 +334,13 @@ def main() :
     print("PROGRESSION_FEATURE_OFFSETS:", PROGRESSION_FEATURE_OFFSETS)
     print("dump_s0:", mj2vec.sparse2vec.dump())
 
-    print("dump_p0:", mj2vec.players2vec.progression(0))
-    print("dump_p1:", mj2vec.players2vec.progression(1))
-    print("dump_p2:", mj2vec.players2vec.progression(2))
+    print("dump_p0:", mj2vec.players2vec.progression_actions(0))
+    print("dump_p1:", mj2vec.players2vec.progression_actions(1))
+    print("dump_p2:", mj2vec.players2vec.progression_actions(2))
+
+    print("dump_p0:", mj2vec.players2vec.progression_feature(0))
+    print("dump_p1:", mj2vec.players2vec.progression_feature(1))
+    print("dump_p2:", mj2vec.players2vec.progression_feature(2))
 
 if __name__ == '__main__':
     main()
