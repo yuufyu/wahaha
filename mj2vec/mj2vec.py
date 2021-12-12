@@ -328,6 +328,8 @@ class Players2Vec :
             offset = POSSIBLE_FEATURE_OFFSETS[actionElem.type]
             feature_value =  (actionElem.value + offset)
             features.append(feature_value)
+        features.sort()
+        assert len(features) == len(set(features))
         return features
 
     def dump(self) :
