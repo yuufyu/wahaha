@@ -9,7 +9,7 @@ import re
 from collections import OrderedDict
 import itertools
 
-from mjlegal.possible_action import PossibleActionGenerator
+from mjlegal.mjai_possible_action import MjaiPossibleActionGenerator
 from mjlegal.mjai import MjaiLoader
 from mjlegal.mjtypes import Tile, TilesUtil
 
@@ -166,6 +166,12 @@ class ActionElem :
                 action = ActionElem(type = elem_type, actor = actor_id, value = 0)
         return action
 
+    @staticmethod
+    def possible_action_feature(action_elem) :
+        assert 0 <= action_elem.value and action_elem.value < POSSIBLE_FEATURE_COUNT[action_elem.type], f"invalid num (type={action_elem.type}, value={action_elem.value})"
+        offset = POSSIBLE_FEATURE_OFFSETS[action_elem.type]
+        feature_value =  (action_elem.value + offset)
+        return feature_value
 
 @dataclass
 class GameElem :
@@ -201,7 +207,7 @@ class Features :
     sparse      : list = None
     progression : list = None
     possible    : list = None
-    actual      : list = None
+    actual      : int  = POSSIBLE_FEATURE_OFFSETS["skip"] # label
 
 TILE37_SUIT_OFFSET_TABLE = {"m" : 0, "p" : 10, "s" : 20, "z" : 29 }
 TILE37_LOOKUP_MJAI_PAI_NAME_TABLE = {'5mr': '0m', '5pr': '0p', '5sr': '0s', 'E': '1z', 'S': '2z', 'W': '3z', 'N': '4z', 'P': '5z', 'F': '6z', 'C': '7z'}
@@ -269,7 +275,7 @@ class Progression2Vec :
 class Players2Vec :
     def __init__(self) :
         self.mjlegal_client = MjaiLoader()
-        self.possible_action_generator = PossibleActionGenerator()
+        self.possible_generator = MjaiPossibleActionGenerator()
         self.progression2vec = None
 
     def action(self, record) :
@@ -305,8 +311,11 @@ class Players2Vec :
 
     def get_possible_action_elem(self, player_id) :
         game_state = self.mjlegal_client.game
-        possible_actions = self.possible_action_generator.possible_game_actions(game_state)
-        possible_mjai_json_actions = [json.dumps(action.to_mjai_json()) for action in possible_actions]
+        game_state.player_id = player_id
+        possible_actions = self.possible_generator.possible_mjai_action(game_state)
+        
+        # 重複削除
+        possible_mjai_json_actions = [json.dumps(action) for action in possible_actions]
         possible_mjai_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
 
         # player action
@@ -329,14 +338,11 @@ class Players2Vec :
         return action_elems
 
     def to_possible_feature(self, player_id) :
-        features = []
         possible_action_elems = self.get_possible_action_elem(player_id)
-        for actionElem in possible_action_elems :
-            assert 0 <= actionElem.value and actionElem.value < POSSIBLE_FEATURE_COUNT[actionElem.type], f"invalid num (type={actionElem.type}, value={actionElem.value})"
-            offset = POSSIBLE_FEATURE_OFFSETS[actionElem.type]
-            feature_value =  (actionElem.value + offset)
-            features.append(feature_value)
-        features.sort()
+        features = []
+        for action_elem in possible_action_elems :
+            feature = ActionElem.possible_action_feature(action_elem)
+            features.append(feature)
         assert len(features) == len(set(features))
         return features
 
@@ -412,11 +418,32 @@ class Mj2Vec :
         self.sparse2vec = Sparse2Vec()
         self.players2vec = Players2Vec()
 
-    def action(self, record) :
+    def process_records(self, records) :
+        for i in range(len(records) - 1) :
+            record = records[i] 
+            next_record = records[i + 1]
+            self.action(record, next_record)
+
+    def action(self, record, next_record) :
         self.sparse2vec.action(record)
         self.players2vec.action(record)
+        print(record)
 
-        if record["type"] in ("dahai", "tsumo", "reach", "pon", "daiminkan", "ankan", "kakan", "nukidora") :
+        # actual action to previous feature
+        next_player_id = -1
+        next_record_type = next_record["type"]
+        if "ryukyoku" == next_record_type :
+            if next_record["reason"] == "kyushukyuhai" :
+                assert(record["type"] == "tsumo")
+                next_player_id = record["actor"]
+            else :
+                pass # 他の流局
+        if "actor" in next_record :
+            next_player_id = next_record["actor"]
+
+        # current feature
+        record_type = record["type"]
+        if record_type in ("dahai", "tsumo", "reach", "pon", "daiminkan", "ankan", "kakan", "nukidora") :
             for player_id in range(3) :
                 possible_actions = self.players2vec.get_possible_action_elem(player_id)
                 if len(possible_actions) > 0 : # 選択肢が発生したとき、状態を保存する。
@@ -439,6 +466,15 @@ class Mj2Vec :
                     possible_feature = self.players2vec.to_possible_feature(player_id)
                     print(f"possible : {possible_feature}")
 
+                    # actual
+                    actual_feature = POSSIBLE_FEATURE_OFFSETS["skip"]
+                    if next_player_id == player_id :
+                        actual_elem = ActionElem.from_mjai(next_record)
+                        if actual_elem is not None :
+                            actual_feature = ActionElem.possible_action_feature(actual_elem)
+                    assert(actual_feature in possible_feature, "invalid actual feature")
+                    print(f"actual : {actual_feature}")
+
 def main() :
     parser = argparse.ArgumentParser()
     parser.add_argument("mjson_filename")
@@ -448,8 +484,8 @@ def main() :
 
     mj2vec = Mj2Vec()
     records = load_mjai_records(filename)
-    for record in records :
-        mj2vec.action(record)
+    mj2vec.process_records(records)
+
     # print("PROGRESSION_FEATURE_OFFSETS:", PROGRESSION_FEATURE_OFFSETS)
     # print("dump_s:", mj2vec.sparse2vec.dump())
     # print("dump_s0:", mj2vec.sparse2vec.to_feature(0))
