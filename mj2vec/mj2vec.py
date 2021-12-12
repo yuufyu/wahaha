@@ -5,6 +5,7 @@ import json
 import argparse
 import numpy as np
 import dataclasses
+from dataclasses import dataclass, asdict
 import re
 from enum import IntEnum, auto
 from collections import OrderedDict
@@ -22,7 +23,7 @@ def feature_count_to_offset(counts : OrderedDict, initial_offset = 0) :
     offsets = {}
     offset = initial_offset
     for key, count in counts.items() :
-        offsets[key] = count + offset
+        offsets[key] = offset
         offset += count
     return offsets
 
@@ -42,74 +43,48 @@ SPARSE_FEATURE_COUNT = OrderedDict([
     ("hand"   , 136),
     ("tsumo_tile" , 37)
 ])
-
 SPARSE_FEATURE_OFFSET = feature_count_to_offset(SPARSE_FEATURE_COUNT)
 
-PROGRESSION_FEATURE_COUNT_ = OrderedDict([
-    ("dahai_tsumogiri", 2),
-    ("dahai_tedasi"  , 3),
-    ("reach" , 3),
-    ("pon" , 3),
-    ("daiminkan" , 4),
-    ("ankan" , 3),
-    ("kakan" , 37),
-    ("nukidora" , 37),
+PROGRESSION_FEATURE_COUNT = OrderedDict([
+    ("dahai_tsumogiri", 37),
+    ("dahai_tedasi"  , 37),
+    ("reach" , 1),
+    ("pon" , 37),
+    ("daiminkan" , 34),
+    ("ankan" , 34),
+    ("kakan" , 34),
+    ("nukidora" , 1),
+    ("end", 0)
 ])
-class ProgressionElem(IntEnum) :
-    BEGIN           = 0
-    DAHAI_TSUMOGIRI = auto()
-    DAHAI_TEDASI    = auto()
-    REACH           = auto()
-    PON             = auto()
-    DAIMINKAN       = auto()
-    ANKAN           = auto()
-    KAKAN           = auto()
-    NUKI            = auto()
+PROGRESSION_FEATURE_OFFSETS = feature_count_to_offset(PROGRESSION_FEATURE_COUNT, 1)
+PROGRESSION_FEATURE_PLAYER_OFFSET = PROGRESSION_FEATURE_OFFSETS["end"]
 
-PROGRESSION_FEATURE_COUNT = [
-    1,  # BEGIN
-    37, # DAHAI_TSUMOGIRI
-    37, # DAHAI_TEDASI
-    1,  # REACH
-    37, # PON
-    34, # DAIMINKAN
-    34, # ANKAN
-    34, # KAKAN
-    1,  # NUKI
-]
-PROGRESSION_FEATURE_OFFSETS = np.insert(np.cumsum(PROGRESSION_FEATURE_COUNT), 0, 0)
-PROGRESSION_FEATURE_PLAYER_OFFSET = PROGRESSION_FEATURE_OFFSETS[-1]
-
-@dataclasses.dataclass
-class Elem :
-    value : int = 0 # TODO assertion value < size
-    size  : int = -1
-
-    def updateValue(self, value) :
-        self.value = min(value, self.size - 1)
-
-    @staticmethod
-    def createElem(value, size) :
-        return Elem(value = min(value, size - 1), size = size)
-
-    @staticmethod
-    def createElemTile37(mjai_pai_str : str) :
-        tile37 = mjai_pai_to_tile37(mjai_pai_str)
-        return Elem(value = tile37, size = 37)
-
-@dataclasses.dataclass
+@dataclass
 class PlayerElem :
     hand : list
-    tsumo : Elem
+    tsumo : int = -1 
 
-@dataclasses.dataclass
+@dataclass
 class GameElem :
     style   : int = -1
     kyotaku : int = -1
     kyoku   : int = -1
     honba   : int = -1
     bakaze  : int = -1
-    dora_markers : list = None
+    dora_0 : int = -1
+    dora_1 : int = -1
+    dora_2 : int = -1
+    dora_3 : int = -1
+    dora_4 : int = -1
+
+    def to_feature(self) :
+        features = []
+        game_elem_dict = asdict(self)
+        for key, value in game_elem_dict.items() :
+            assert value < SPARSE_FEATURE_COUNT[key], f"invalid num (key={key}, val={value})" 
+            offset = SPARSE_FEATURE_OFFSET[key]
+            features.append(offset + value)
+        return features
 
 TILE37_SUIT_OFFSET_TABLE = {"m" : 0, "p" : 10, "s" : 20, "z" : 29 }
 TILE37_LOOKUP_MJAI_PAI_NAME_TABLE = {'5mr': '0m', '5pr': '0p', '5sr': '0s', 'E': '1z', 'S': '2z', 'W': '3z', 'N': '4z', 'P': '5z', 'F': '6z', 'C': '7z'}
@@ -138,15 +113,7 @@ def load_mjai_records(filename) :
     log_input_file.close()
     return records
 
-def game_state_to_feature(game_state : GameState, player_id) :
-    player_state = game_state.player_states[player_id]
-    tiles = player_state.tiles
-    tiles136 = TilesUtil.tiles_to_tiles136(tiles)
-    tsumo_tile = player_state.tsumo_tile
-    tsumo_tile37 = None
-    if tsumo_tile :
-        tsumo_tile37 = tsumo_tile
-    return tiles136, tsumo_tile37
+
 
 class Progression2Vec :
     def __init__(self, player_id) :
@@ -156,7 +123,7 @@ class Progression2Vec :
         return ((id - self.player_id + 3) % 3)
 
     # actor : abs id
-    def feature_num(self, type:ProgressionElem, actor, num = 0) :
+    def feature_num(self, type : str, actor, num = 0) :
         assert num < PROGRESSION_FEATURE_COUNT[type], f"invalid num (type={type}, num={num})" 
         offset = PROGRESSION_FEATURE_OFFSETS[type]
         rel_actor_id = self.to_rel_seat(actor)
@@ -165,7 +132,7 @@ class Progression2Vec :
     def action(self, record) :
         action_type = record["type"]
         if action_type == "start_kyoku" :
-            self.progression = [Elem(1,1)] # Begging of the round
+            self.progression = [0] # Begging of the round
         elif "actor" in record :
             actor_id = record["actor"]
             if action_type == "tsumo" :
@@ -198,46 +165,50 @@ class Progression2Vec :
 
     def dahai(self, actor, pai, tsumogiri) :
         tile37 = mjai_pai_to_tile37(pai)
-        progression_type = ProgressionElem.DAHAI_TSUMOGIRI if tsumogiri else ProgressionElem.DAHAI_TEDASI
+        progression_type = "dahai_tsumogiri" if tsumogiri else "dahai_tedasi"
         num = self.feature_num(progression_type, actor, tile37)
         self.progression.append(num)
 
     def reach(self, actor) :
-        num = self.feature_num(ProgressionElem.REACH, actor, 0)
+        num = self.feature_num("reach", actor, 0)
         self.progression.append(num)
     
     def pon(self, actor, pai, consumed) :
         pai_list = [pai] + consumed
         tile37_list = [mjai_pai_to_tile37(pai) for pai in pai_list]
         tile37 = min(tile37_list) # 赤ドラを含む場合は赤ドラ牌を選出する
-        num = self.feature_num(ProgressionElem.PON, actor, tile37)
+        num = self.feature_num("pon", actor, tile37)
         self.progression.append(num)
     
     def daiminkan(self, actor, pai) :
         tile34 = mjai_pai_to_tile34(pai)
-        num = self.feature_num(ProgressionElem.DAIMINKAN, actor, tile34)
+        num = self.feature_num("daiminkan", actor, tile34)
         self.progression.append(num)
     
     def ankan(self, actor, consumed) :
         pai = consumed[0]
         tile34 = mjai_pai_to_tile34(pai)
-        num = self.feature_num(ProgressionElem.ANKAN, actor, tile34)
+        num = self.feature_num("ankan", actor, tile34)
         self.progression.append(num)
     
     def kakan(self, actor, pai) :
         tile34 = mjai_pai_to_tile34(pai)
-        num = self.feature_num(ProgressionElem.KAKAN, actor, tile34)
+        num = self.feature_num("kakan", actor, tile34)
         self.progression.append(num)
 
     def nukidora(self, actor) :
-        num = self.feature_num(ProgressionElem.NUKI, actor, 0)
+        num = self.feature_num("nukidora", actor, 0)
         self.progression.append(num)
 
 class Players2Vec :
     def __init__(self) :
+        self.mjlegal_client = MjaiLoader()
+        self.possible_action_generator = PossibleActionGenerator()
         self.players_progress = [] 
 
     def action(self, record) :
+        self.mjlegal_client.action(record)
+
         action_type = record["type"]
         if action_type == "start_kyoku" :
             self.players_progress = [Progression2Vec(i) for i in range(3)]
@@ -248,6 +219,16 @@ class Players2Vec :
 
     def progression(self, player_id) :
         return self.players_progress[player_id].progression
+
+    def game_state_to_feature(self, player_id) :
+        player_state = self.mjlegal_client.game.player_states[player_id]
+        tiles = player_state.tiles
+        tiles136 = TilesUtil.tiles_to_tiles136(tiles)
+        tsumo_tile = player_state.tsumo_tile
+        player_elem = PlayerElem(hand = tiles136)
+        if tsumo_tile :
+            player_elem.tsumo = tsumo_tile
+        return player_elem
 
 class Sparse2Vec :
     def __init__(self) :
@@ -273,46 +254,47 @@ class Sparse2Vec :
             m = re.search("log=\d{10}gm-([0-9a-f]{4})-",uri)
             if "00b1" == m.group(1) :
                 game_type = 0
-        self.game_elem.style = Elem(value = game_type, size = 2)
+        self.game_elem.style = game_type 
 
     def setup_kyotaku(self, record) :
         assert "start_kyoku" == record["type"], "invalid record type"
         kyotaku = record["kyotaku"]
-        self.game_elem.kyotaku = Elem.createElem(value = kyotaku, size = 3)
+        self.game_elem.kyotaku = kyotaku
 
     def setup_kyoku(self, record) :
         assert "start_kyoku" == record["type"], "invalid record type"
         kyoku = record["kyoku"]
-        self.game_elem.kyoku = Elem(value = kyoku, size = 3)
+        self.game_elem.kyoku = kyoku
 
     def setup_honba(self, record) :
         assert "start_kyoku" == record["type"], "invalid record type"
         honba = record["honba"]
-        self.game_elem.honba = Elem.createElem(value = honba, size = 4)
+        self.game_elem.honba = honba
 
     def setup_bakaze(self, record) :
         assert "start_kyoku" == record["type"], "invalid record type"
         bakaze_str = record["bakaze"]
         bakaze = "ESW".index(bakaze_str)
-        self.game_elem.bakaze = Elem(value = bakaze, size = 3)
+        self.game_elem.bakaze = bakaze
 
     def setup_dora_markers(self, record) :
         assert "start_kyoku" == record["type"], "invalid record type"
         dora_marker = record["dora_marker"]
-        self.game_elem.dora_markers = [Elem.createElemTile37(dora_marker)]
+        self.game_elem.dora_0  = mjai_pai_to_tile37(dora_marker)
 
     def dump(self) :
-        return self.game_elem
+        return self.game_elem.to_feature()
+        # return self.game_elem
 
 class Mj2Vec :
     def __init__(self) :
-        self.mjlegal_client = MjaiLoader()
+        
         self.sparse2vec = Sparse2Vec()
         self.players2vec = Players2Vec()
-        self.possible_action_generator = PossibleActionGenerator()
+        
 
     def action(self, record) :
-        self.mjlegal_client.action(record)
+        
         self.sparse2vec.action(record)
         self.players2vec.action(record)
 
@@ -330,7 +312,12 @@ def main() :
     records = load_mjai_records(filename)
     for record in records :
         mj2vec.action(record)
-    print("dump:", mj2vec.sparse2vec.dump())
+    print("PROGRESSION_FEATURE_OFFSETS:", PROGRESSION_FEATURE_OFFSETS)
+    print("dump_s0:", mj2vec.sparse2vec.dump())
+
+    print("dump_p0:", mj2vec.players2vec.progression(0))
+    print("dump_p1:", mj2vec.players2vec.progression(1))
+    print("dump_p2:", mj2vec.players2vec.progression(2))
 
 if __name__ == '__main__':
     main()
