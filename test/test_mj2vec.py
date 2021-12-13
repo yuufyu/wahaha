@@ -1,5 +1,5 @@
 import unittest
-from mj2vec.mj2vec import *
+from features.mj2vec import *
 
 class TestMjai(unittest.TestCase) :
     def test_mjai_tile(self) :
