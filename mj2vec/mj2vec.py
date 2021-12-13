@@ -4,7 +4,7 @@
 import json
 import argparse
 import numpy as np
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 import re
 from collections import OrderedDict
 import itertools
@@ -201,6 +201,19 @@ class GameElem :
             features.append(offset + value)
         features.sort()
         return features
+    def add_dora(self, tile37) :
+        if -1 == self.dora_0 :
+            dora_0 = tile37
+        elif -1 == self.dora_1 :
+            dora_1 = tile37
+        elif -1 == self.dora_2 :
+            dora_2 = tile37
+        elif -1 == self.dora_3 :
+            dora_3 = tile37
+        elif -1 == self.dora_4 :
+            dora_4 = tile37
+        else :
+            assert False, "Too many dora markers."
 
 class Features :
     uuid        : str = "uuid"
@@ -370,6 +383,8 @@ class Sparse2Vec :
             self.setup_honba(record)
             self.setup_bakaze(record)
             self.setup_dora_markers(record)
+        elif action_type == "dora" :
+            self.add_dora_markers(record)
     
     def setup_game_style(self, start_game_record) :
         assert "start_game" == start_game_record["type"], "record type must be start_game."
@@ -406,6 +421,10 @@ class Sparse2Vec :
         assert "start_kyoku" == record["type"], "invalid record type"
         dora_marker = record["dora_marker"]
         self.game_elem.dora_0  = mjai_pai_to_tile37(dora_marker)
+
+    def add_dora_markers(self, record) :
+        dora_marker = record["dora_marker"]
+        self.game_elem.add_dora(mjai_pai_to_tile37(dora_marker))
 
     def dump(self) :
         return self.game_elem
@@ -452,7 +471,7 @@ class Mj2Vec :
                     # sparse feature
                     sparse_feature = self.sparse2vec.to_feature(player_id) \
                                     + player_elem.to_sparse_feature()
-                    print(f"sparse : {sparse_feature}")
+                    print(f"sparse[{player_id}] : {sparse_feature}")
 
                     # numeric feature
                     numeric_feature = player_elem.scores
