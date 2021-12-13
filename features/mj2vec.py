@@ -369,15 +369,17 @@ class Players2Vec :
 
 class Sparse2Vec :
     def __init__(self) :
+        self.game_style = -1
         self.players = None
         self.game_elem = None
 
     def action(self, record) :
         action_type = record["type"]
         if action_type == "start_game" :
-            self.game_elem = GameElem()
             self.setup_game_style(record)
         elif action_type == "start_kyoku" :
+            self.game_elem = GameElem()
+            self.game_elem.style = self.game_style
             self.setup_kyoku(record)
             self.setup_kyotaku(record)
             self.setup_honba(record)
@@ -394,7 +396,7 @@ class Sparse2Vec :
             m = re.search("log=\d{10}gm-([0-9a-f]{4})-",uri)
             if "00b1" == m.group(1) :
                 game_type = 0
-        self.game_elem.style = game_type 
+        self.game_style = game_type 
 
     def setup_kyotaku(self, record) :
         assert "start_kyoku" == record["type"], "invalid record type"
