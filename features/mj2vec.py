@@ -215,9 +215,11 @@ class GameElem :
         else :
             assert False, "Too many dora markers."
 
+@dataclass
 class Features :
     uuid        : str = "uuid"
     sparse      : list = None
+    numeric     : list = None
     progression : list = None
     possible    : list = None
     actual      : int  = POSSIBLE_FEATURE_OFFSETS["skip"] # label
@@ -393,6 +395,7 @@ class Sparse2Vec :
         game_type = 1 # 東風(0), 半荘(1)
         if "uri" in start_game_record :
             uri = start_game_record["uri"]
+            self.uri = uri
             m = re.search("log=\d{10}gm-([0-9a-f]{4})-",uri)
             if "00b1" == m.group(1) :
                 game_type = 0
@@ -438,6 +441,7 @@ class Mj2Vec :
     def __init__(self) :
         self.sparse2vec = Sparse2Vec()
         self.players2vec = Players2Vec()
+        self.features = []
 
     def process_records(self, records) :
         for i in range(len(records) - 1) :
@@ -446,25 +450,34 @@ class Mj2Vec :
             self.action(record, next_record)
 
     def action(self, record, next_record) :
-        self.sparse2vec.action(record)
-        self.players2vec.action(record)
-        print(record)
+        print(f"{record} -> {next_record}")
 
         # actual action to previous feature
         next_player_id = -1
+        record_type = record["type"]
         next_record_type = next_record["type"]
         if "ryukyoku" == next_record_type :
             if next_record["reason"] == "kyushukyuhai" :
-                assert(record["type"] == "tsumo")
+                assert(record_type == "tsumo")
                 next_player_id = record["actor"]
             else :
                 pass # 他の流局
+        elif "dahai" == next_record_type 
+            if "pon" == record_type:
+                """
+                [Fix]ponした後の打牌がtsumogiri = Trueになってしまうレコードを常にFalseに修正
+                """
+                next_record["tsumogiri"] = False
+                
         if "actor" in next_record :
             next_player_id = next_record["actor"]
 
         # current feature
-        record_type = record["type"]
-        if record_type in ("dahai", "tsumo", "reach", "pon", "daiminkan", "ankan", "kakan", "nukidora") :
+        self.sparse2vec.action(record)
+        self.players2vec.action(record)
+        
+        #if record_type in ("dahai", "tsumo", "reach", "pon", "daiminkan", "ankan", "kakan", "nukidora") :
+        if next_player_id != -1 and next_record_type != "tsumo" :
             for player_id in range(3) :
                 possible_actions = self.players2vec.get_possible_action_elem(player_id)
                 if len(possible_actions) > 0 : # 選択肢が発生したとき、状態を保存する。
@@ -488,13 +501,29 @@ class Mj2Vec :
                     print(f"possible : {possible_feature}")
 
                     # actual
-                    actual_feature = POSSIBLE_FEATURE_OFFSETS["skip"]
+                    actual_elem = ActionElem(type = "skip", actor = player_id, value = 0)
                     if next_player_id == player_id :
-                        actual_elem = ActionElem.from_mjai(next_record)
-                        if actual_elem is not None :
-                            actual_feature = ActionElem.possible_action_feature(actual_elem)
-                    assert(actual_feature in possible_feature, "invalid actual feature")
-                    print(f"actual : {actual_feature}")
+                        mjai_elem = ActionElem.from_mjai(next_record)
+                        if mjai_elem is not None :
+                            actual_elem = mjai_elem
+
+                    # @debug
+                    possible_elems = self.players2vec.get_possible_action_elem(player_id) # @debug
+                    print(f"possible_elems:{possible_elems}") # @debug
+                    print(f"actual_elem:{actual_elem}") # @debug
+
+                    actual_label = ActionElem.possible_action_feature(actual_elem)
+                    print(f"actual : {actual_label}")
+
+                    assert actual_label in possible_feature, f"invalid actual feature {actual_label}"
+
+                    feature = Features(uuid = self.sparse2vec.uri,
+                            sparse = sparse_feature,
+                            numeric = numeric_feature,
+                            progression = progression_feature,
+                            possible = possible_feature,
+                            actual = actual_label)
+                    self.features.append(feature)
 
 def main() :
     parser = argparse.ArgumentParser()
