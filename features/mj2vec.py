@@ -203,15 +203,15 @@ class GameElem :
         return features
     def add_dora(self, tile37) :
         if -1 == self.dora_0 :
-            dora_0 = tile37
+            self.dora_0 = tile37
         elif -1 == self.dora_1 :
-            dora_1 = tile37
+            self.dora_1 = tile37
         elif -1 == self.dora_2 :
-            dora_2 = tile37
+            self.dora_2 = tile37
         elif -1 == self.dora_3 :
-            dora_3 = tile37
+            self.dora_3 = tile37
         elif -1 == self.dora_4 :
-            dora_4 = tile37
+            self.dora_4 = tile37
         else :
             assert False, "Too many dora markers."
 
