@@ -462,11 +462,7 @@ class Mj2Vec :
                 next_player_id = record["actor"]
             else :
                 pass # 他の流局
-<<<<<<< HEAD
         elif "dahai" == next_record_type :
-=======
-        elif "dahai" == next_record_type 
->>>>>>> 25edb686b9580673f1e6485cc791500d2be92b47
             if "pon" == record_type:
                 """
                 [Fix]ponした後の打牌がtsumogiri = Trueになってしまうレコードを常にFalseに修正
