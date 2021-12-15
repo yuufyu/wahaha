@@ -8,6 +8,7 @@ from dataclasses import dataclass, asdict, field
 import re
 from collections import OrderedDict
 import itertools
+from pathlib import Path
 
 from mjlegal.mjai_possible_action import MjaiPossibleActionGenerator
 from mjlegal.mjai import MjaiLoader
@@ -524,10 +525,35 @@ class Mj2Vec :
                             possible = possible_feature,
                             actual = actual_label)
                     self.features.append(feature)
+    def save(self, dir_name) :
+        output_dir = Path(dir_name)
+        
+        sparse_list = []
+        numeric_list = []
+        progression_list = []
+        possible_list = []
+        actual_list = []
+        for feature in self.features :
+            sparse_list.append(feature.sparse)
+            numeric_list.append(feature.numeric)
+            progression_list.append(feature.progression)
+            possible_list.append(feature.possible)
+            actual_list.append(feature.actual)
+
+        m = re.search("\d{10}gm-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{8}", feature.uuid)
+        filename = m.group(0) + ".npz"
+        
+        np.savez_compressed(output_dir / filename, 
+                sparse = np.array(sparse_list),
+                numeric = np.array(numeric_list),
+                progression = np.array(progression_list),
+                actual = np.array(actual_list)
+        )
 
 def main() :
     parser = argparse.ArgumentParser()
     parser.add_argument("mjson_filename")
+    parser.add_argument("save_dir_name", default = ".")
     args = parser.parse_args()
     
     filename = args.mjson_filename
@@ -535,6 +561,7 @@ def main() :
     mj2vec = Mj2Vec()
     records = load_mjai_records(filename)
     mj2vec.process_records(records)
+    mj2vec.save(args.save_dir_name)
 
 if __name__ == '__main__':
     main()
