@@ -34,7 +34,7 @@ SPARSE_FEATURE_COUNT = OrderedDict([
     ("dora_2"           , 37),
     ("dora_3"           , 37),
     ("dora_4"           , 37),
-    ("rank"             , 3),
+    ("rank"             , 6),
     ("hand"             , 136),
     ("tsumo_tile"       , 37),
     ("end"              , 0)
@@ -360,6 +360,7 @@ class Players2Vec :
             feature = ActionElem.possible_action_feature(action_elem)
             features.append(feature)
         assert len(features) == len(set(features))
+        features.sort()
         return features
 
     def dump(self) :
@@ -547,6 +548,7 @@ class Mj2Vec :
                 sparse = np.array(sparse_list),
                 numeric = np.array(numeric_list),
                 progression = np.array(progression_list),
+                possible = np.array(possible_list),
                 actual = np.array(actual_list)
         )
 
