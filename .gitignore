@@ -1,5 +1,7 @@
 # Train model
 model/
+*.npz
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
