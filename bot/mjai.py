@@ -11,15 +11,12 @@ from .client import Client
 class MjaiBot :
     def __init__(self, model_path) :
         self.model_path = model_path
-
-    def reset(self) : 
         self.client = Client(self.model_path)
 
-    async def open(self, server, port) :
-        self.server = server 
+    async def open(self, host, port) :
+        self.host = host 
         self.port = port
-        self.reader, self.writer = await asyncio.open_connection(self.server, self.port)
-        self.reset()
+        self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
 
     async def send(self, data) :
         send_str = json.dumps(data) + '\n'
