@@ -296,6 +296,7 @@ class Players2Vec :
 
     def action(self, record) :
         self.mjlegal_client.action(record)
+        # TODO possible_action()もここで計算した方が高速
 
         action_type = record["type"]
         if action_type == "start_kyoku" :
@@ -325,15 +326,23 @@ class Players2Vec :
 
         return player_elem
 
-    def get_possible_action_elem(self, player_id) :
+    def get_possible_action(self, player_id) :
         game_state = self.mjlegal_client.game
         game_state.player_id = player_id
+
         possible_actions = self.possible_generator.possible_mjai_action(game_state)
         
         # 重複削除
         possible_mjai_json_actions = [json.dumps(action) for action in possible_actions]
         possible_mjai_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
+        return possible_mjai_actions
 
+    def get_possible_action_elem(self, player_id) :
+        # game_state = self.mjlegal_client.game
+        # game_state.player_id = player_id
+
+        possible_mjai_actions = self.get_possible_action(player_id)
+        
         # player action
         possible_player_actions = []
         for mjai_action in possible_mjai_actions :
@@ -350,7 +359,7 @@ class Players2Vec :
                 assert el is not None, f"Invalid action type {possible}"
                 action_elems.append(el)
             if can_skip :
-                action_elems.append(ActionElem(type = "skip", actor = player_id, value = 0))
+                action_elems.append(ActionElem(type = "skip", actor = player_id, value = 0)) # player_idは不要
         return action_elems
 
     def to_possible_feature(self, player_id) :
