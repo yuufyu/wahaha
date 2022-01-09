@@ -36,6 +36,10 @@ TRAIN_MAX_TOKEN_LENGTH = 2 + 139 + 1 # 26(sparse)+81(progression)+32(possible)
 TRAIN_ID_LIST = list(range(2, TRAIN_TOKEN_PADDING))
 
 TRAIN_HIDDEN_SIZE = 768
+
+#--------------------------------
+# MLM config
+#--------------------------------
 TRAIN_MLM_CONFIG = {
     'vocab_size': TRAIN_TOKEN_VOCAB_COUNT,  # MASK_TOKEN_ID, MASK, CLS, SEP
     'hidden_size': TRAIN_HIDDEN_SIZE,
@@ -49,6 +53,30 @@ TRAIN_MLM_CONFIG = {
     'type_vocab_size': 1,  # 対の文章を入れない。つまりtoken_type_embeddingsは完全に無駄になっている。
     'initializer_range': 0.02,
 }
+TRAIN_MLM_MODEL_CONFIG = {
+    'checkpoint_callback' : False, 
+    'gpus' : [0], # 環境にあわせて変更
+    'val_check_interval' : 10000, # validationおよびcheckpointの間隔step数
+    'max_epochs' : 5,
+    'model_dir' : None, # インポートするモデル
+}
+TRAIN_MLM_LOADER_CONFIG = {
+    'batch_size' : 64,
+    'num_workers' : 8,
+    'pin_memory' : False,
+    'drop_last' : True
+}
+VAL_MLM_LOADER_CONFIG = {
+    'batch_size' : 64,
+    'num_workers' : 8,
+    'pin_memory' : False,
+    'drop_last' : False
+}
+BERT_MLM_CONFIG = BertConfig.from_dict(TRAIN_MLM_CONFIG)
+
+#--------------------------------
+# Clasiffication config
+#--------------------------------
 TRAIN_CLASSIFICATION_CONFIG = {
     'vocab_size': TRAIN_TOKEN_VOCAB_COUNT,  # MASK_TOKEN_ID, MASK, CLS, SEP
     'hidden_size': TRAIN_HIDDEN_SIZE,
@@ -82,69 +110,149 @@ VAL_CLASSIFICATION_LOADER_CONFIG = {
     'pin_memory' : True,
     'drop_last' : False
 }
-config = BertConfig.from_dict(TRAIN_MLM_CONFIG)
 BERT_CLASSIFICATION_CONFIG = BertConfig.from_dict(TRAIN_CLASSIFICATION_CONFIG)
 
-class BertPolicyValue(nn.Module):
+# https://github.com/PyTorchLightning/pytorch-lightning/issues/2534#issuecomment-674582085
+class CheckpointEveryNSteps(pl.Callback):
+    """
+    Save a checkpoint every N steps, instead of Lightning's default that checkpoints
+    based on validation loss.
+    """
+
+    def __init__(
+        self,
+        save_step_frequency,
+        prefix="N-Step-Checkpoint",
+        use_modelcheckpoint_filename=False,
+    ):
+        """
+        Args:
+            save_step_frequency: how often to save in steps
+            prefix: add a prefix to the name, only used if
+                use_modelcheckpoint_filename=False
+            use_modelcheckpoint_filename: just use the ModelCheckpoint callback's
+                default filename, don't use ours.
+        """
+        self.save_step_frequency = save_step_frequency
+        self.prefix = prefix
+        self.use_modelcheckpoint_filename = use_modelcheckpoint_filename
+
+    def on_batch_end(self, trainer: pl.Trainer, _):
+        """ Check if we should save a checkpoint after every train batch """
+        epoch = trainer.current_epoch
+        global_step = trainer.global_step
+        if global_step % self.save_step_frequency == 0:
+            if self.use_modelcheckpoint_filename:
+                filename = trainer.checkpoint_callback.filename
+            else:
+                #filename = f"{self.prefix}_{epoch}_{global_step}.ckpt"
+                filename = f"{self.prefix}.ckpt"
+            ckpt_path = os.path.join(TRAIN_LOG_DIRECTORY, filename)
+            trainer.save_checkpoint(ckpt_path)
+
+#--------------------------------
+# MLM model
+#--------------------------------
+class BertMLM(nn.Module):
     def __init__(self, model_dir=None):
         super().__init__()
         if model_dir is None:
-            self.bert = BertModel(BERT_CLASSIFICATION_CONFIG)
+            self.bert = BertForMaskedLM(BERT_MLM_CONFIG)
         else:
-            self.bert = BertModel.from_pretrained(model_dir)
+            self.bert = BertForMaskedLM.from_pretrained(model_dir)
 
-        self.policy_head = nn.Sequential(
-            nn.Linear(TRAIN_HIDDEN_SIZE, TRAIN_HIDDEN_SIZE * 2),
-            nn.Tanh(),
-            nn.Linear(TRAIN_HIDDEN_SIZE * 2, 9 * 9 * 27)
-        )
-
-        self.value_head = nn.Sequential(
-            nn.Linear(TRAIN_HIDDEN_SIZE, TRAIN_HIDDEN_SIZE * 2),
-            nn.Tanh(),
-            nn.Linear(TRAIN_HIDDEN_SIZE * 2, 1),
-            nn.Sigmoid()
-        )
-
-        self.loss_policy_fn = nn.CrossEntropyLoss()
-        self.loss_value_fn = nn.MSELoss()
-
-    def forward(self, input_ids, labels=None):
-        features = self.bert(input_ids=input_ids)['last_hidden_state']
-        policy = self.policy_head(features).mean(axis=1)
-        value = self.value_head(features).mean(axis=1).squeeze(1)
-        if labels is None:
-            return {'policy': policy, 'value': value}
-        else:
-            loss_policy = self.loss_policy_fn(policy, labels['labels'])
-            loss_value = self.loss_value_fn(value, labels['values'])
-            loss = loss_policy + loss_value
-            return {'loss_policy': loss_policy, 'loss_value': loss_value, 'loss': loss}
-        # loss = self.loss_policy_fn(policy, labels['labels'])
-        # return {'loss' : loss}
-
-
-
-# BERT分類モデルの定義
-class BERTClass(nn.Module):
-    def __init__(self, drop_rate, otuput_size):
+    def forward(self, input_ids, labels):
+        return self.bert(input_ids=input_ids, labels=labels)
+class MLMModule(pl.LightningModule):
+    def __init__(self, hparams):
         super().__init__()
-        # self.bert = BertModel.from_pretrained('bert-base-uncased')
-        self.bert = BertModel(BERT_CLASSIFICATION_CONFIG)
-        self.drop = torch.nn.Dropout(drop_rate)
-        self.fc = torch.nn.Linear(768, otuput_size)  # BERTの出力に合わせて768次元を指定
+        model_dir = hparams["model_dir"]
+        self.save_hyperparameters(hparams)
+        self.model = BertMLM(model_dir)
 
-    def forward(self, ids, mask):
-        # _, out = self.bert(ids, attention_mask=mask)
-        out = self.bert(ids, attention_mask=mask)
-        # _, out = self.bert(ids)
-        out = out['pooler_output']
-        # print("[BertClass]",out)
-        out = self.fc(self.drop(out))
-        return out
+    def forward(self, batch):
+        input_ids = batch['input_ids']
+        labels = batch['labels']
+        return self.model(input_ids=input_ids, labels=labels)
 
+    def training_step(self, batch, batch_idx):
+        outputs = self(batch)
+        loss = outputs[0]
+        self.log('loss', loss)
+        return loss
 
+    def validation_step(self, batch, batch_idx):
+        outputs = self(batch)
+        loss = outputs[0].detach().cpu().numpy()
+        return {'loss': loss}
 
+    def validation_epoch_end(self, outputs):
+        val_loss = np.mean([out['loss'] for out in outputs])
+        #self.log('steps', self.global_step)
+        self.log('val_loss', val_loss)
+
+    def configure_optimizers(self):
+        return AdamW(self.parameters(), lr=5e-5)
+
+class MLMDataset(Dataset):
+    def __init__(self, filename):
+        self.filename = filename # input text file
+        with open(self.filename, 'r') as file :
+            print("[MLMDataset]--- start setup ---")
+            self.content = file.readlines()
+            print("[MLMDataset]--- loading is completed ---")
+
+        self.mask_token_id = TRAIN_TOKEN_MASK  # 駒が割り振られていないid
+
+    def __len__(self):
+        return len(self.content)
+
+    def __getitem__(self, idx):
+        line = self.content[idx]
+        inputs, _ = line.split('\t') # labelは破棄
+        inputs = json.loads('[' + inputs + ']')
+        inputs = [TRAIN_TOKEN_CLS] + inputs + [TRAIN_TOKEN_SEP]
+        
+        inputs = np.array(inputs)
+        inputs = np.pad(inputs,(0, TRAIN_MAX_TOKEN_LENGTH - len(inputs)), constant_values = TRAIN_TOKEN_PADDING)
+        labels = inputs.copy()
+
+        # 予想対象
+        masked_indices = np.random.random(labels.shape) < 0.15
+        labels[~masked_indices] = -100
+
+        # 80%はマスクトークンに
+        indices_replaced = (np.random.random(labels.shape) < 0.8) & masked_indices
+        inputs[indices_replaced] = self.mask_token_id
+
+        # 10%はランダムに置き換え
+        indices_random = (np.random.random(labels.shape) < 0.5) & masked_indices & ~indices_replaced
+        random_words = np.random.choice(TRAIN_ID_LIST, labels.shape)
+        inputs[indices_random] = random_words[indices_random]
+
+        # 残り10%はそのままのものが残る
+        ret_dict = {'input_ids': torch.tensor(inputs, dtype=torch.long),
+                    'labels': torch.tensor(labels, dtype=torch.long)}
+        return ret_dict
+
+class MLMDataModule(pl.LightningDataModule):
+    def __init__(self):
+        super().__init__()
+        # self.cfg = cfg
+
+    def setup(self, stage=None) :
+        self.train_dataset = MLMDataset(TRAIN_FILE)
+        self.val_dataset = MLMDataset(TEST_FILE)
+
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, **TRAIN_MLM_LOADER_CONFIG)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, **VAL_MLM_LOADER_CONFIG)
+        
+#--------------------------------
+# Classification model
+#--------------------------------
 # model = BertModel.from_pretrained('Japanese_L-12_H-768_A-12_E-30_BPE/pytorch_model.bin', config=config)
 class BertClassification(nn.Module) :
     def __init__(self, model_bin):
@@ -229,16 +337,10 @@ class BertClassificationDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(self.val_dataset, **VAL_CLASSIFICATION_LOADER_CONFIG)
 
+#--------------------------------------------------------------------------------
+# Print Network
+#--------------------------------------------------------------------------------
 from torchinfo import summary
-def printModel() :
-    model = BertPolicyValue()
-    summary(model, input_size=(1,TRAIN_MAX_TOKEN_LENGTH),dtypes=[torch.long])
-
-def printBERTClass() :
-    model = BERTClass(0.5, TRAIN_POSSIBLE_LABEL_COUNT)
-    inshape = (1, 10)
-    mask = torch.LongTensor(np.ones(inshape))
-    summary(model, input_size=inshape, mask = mask, dtypes=[torch.long])
 
 def printBertClassification() :
     model = BertClassification()
@@ -247,11 +349,6 @@ def printBertClassification() :
     summary(model, input_size=inshape, labels = label , dtypes=[torch.long], depth = 4)
 
 def main() :
-    print("--- BertPolicyValue ---")
-    printModel()
-    # print("--- BERTClass ---")
-    # printBERTClass()
-    print("--- BertClassification ---")
     printBertClassification()
 
 if __name__ == '__main__':
