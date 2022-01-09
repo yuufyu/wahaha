@@ -1,5 +1,3 @@
-# from mjlegal.mjai_player_loader import MjaiPlayerLoader
-# from mjlegal.mjai_possible_action import MjaiPossibleActionGenerator
 import numpy as np
 
 from .bert import BertClassification
