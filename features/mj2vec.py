@@ -115,6 +115,7 @@ class ActionElem :
     def from_mjai(record) :
         action = None
         action_type = record["type"]
+        assert action_type != "tsumo"
         # skipはmjaiにない
         if action_type == "ryukyoku" :
             # mjaiにactorが含まれていない。
@@ -122,12 +123,12 @@ class ActionElem :
             actor_id = 0
             if "actor" in record :
                 actor_id = record["actor"] 
-            action = ActionElem(type = action_type, actor = actor_id, value = 0) 
+            action = ActionElem(type = action_type, actor = actor_id, value = 0)
+        elif action_type == "none" :
+            action = ActionElem(type = "skip", value = 0)
         elif "actor" in record :
             actor_id = record["actor"]
-            if action_type == "tsumo" :
-                pass
-            elif action_type == "dahai" :
+            if action_type == "dahai" :
                 pai = record["pai"]
                 tsumogiri = record["tsumogiri"]
                 tile37 = mjai_pai_to_tile37(pai)
@@ -331,43 +332,31 @@ class Players2Vec :
         game_state.player_id = player_id
 
         possible_actions = self.possible_generator.possible_mjai_action(game_state)
-        
+
         # 重複削除
         possible_mjai_json_actions = [json.dumps(action) for action in possible_actions]
         possible_mjai_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
-        return possible_mjai_actions
 
-    def get_possible_action_elem(self, player_id) :
-        # game_state = self.mjlegal_client.game
-        # game_state.player_id = player_id
-
-        possible_mjai_actions = self.get_possible_action(player_id)
-        
-        # player action
+        # player_idのactionのみ抽出
         possible_player_actions = []
         for mjai_action in possible_mjai_actions :
-            if "actor" in mjai_action and mjai_action["actor"] == player_id :
-                action_type = mjai_action["type"]
-                if action_type in ("dahai", "reach", "pon", "daiminkan", "ankan", "kakan", "nukidora", "hora", "ryukyoku") :
+            action_type = mjai_action["type"]
+            if action_type in ("dahai", "reach", "pon", "daiminkan", "ankan", "kakan", "nukidora", "hora", "ryukyoku") :
+                if mjai_action["actor"] == player_id :
                     possible_player_actions.append(mjai_action)
-        
-        action_elems = []
-        if len(possible_player_actions) > 0 :
-            can_skip = (len([action for action in possible_player_actions if action["type"] == "dahai"]) == 0)
-            for possible in possible_player_actions :
-                el = ActionElem.from_mjai(possible)
-                assert el is not None, f"Invalid action type {possible}"
-                action_elems.append(el)
-            if can_skip :
-                action_elems.append(ActionElem(type = "skip", actor = player_id, value = 0)) # player_idは不要
+            elif action_type == "none" :
+                possible_player_actions.append(mjai_action)
+
+        return possible_player_actions
+
+    def get_possible_action_elem(self, player_id) :
+        possible_player_actions = self.get_possible_action(player_id)
+        action_elems = [ActionElem.from_mjai(action) for action in possible_player_actions]
         return action_elems
 
     def to_possible_feature(self, player_id) :
         possible_action_elems = self.get_possible_action_elem(player_id)
-        features = []
-        for action_elem in possible_action_elems :
-            feature = ActionElem.possible_action_feature(action_elem)
-            features.append(feature)
+        features = [ActionElem.possible_action_feature(action_elem) for action_elem in possible_action_elems]
         assert len(features) == len(set(features))
         features.sort()
         return features
@@ -378,7 +367,6 @@ class Players2Vec :
             possible_action = self.get_possible_action_elem(i)
             print(f"possible{i} : {possible_action}")
             print(f"player{i} : {player_elem}")
-
 
 class Sparse2Vec :
     def __init__(self) :
@@ -487,11 +475,22 @@ class Mj2Vec :
         self.sparse2vec.action(record)
         self.players2vec.action(record)
         
-        #if record_type in ("dahai", "tsumo", "reach", "pon", "daiminkan", "ankan", "kakan", "nukidora") :
-        if next_player_id != -1 and next_record_type != "tsumo" :
+        """
+        [FIXME]
+        mjaiが出力するmjsonのaction順序は異なっている
+        暫定的にnextがdoraの場合は無視することにする
+        現在のactionがdoraの場合はtsumoと同じ扱いにする
+        - 加槓
+            mjaiの動作 : kakan -> tsumo -> dahai -> dora
+            mjson     : kakan -> tsumo -> dora -> dahai
+
+        @ref https://gimite.net/pukiwiki/index.php?Mjai%20%E9%BA%BB%E9%9B%80AI%E5%AF%BE%E6%88%A6%E3%82%B5%E3%83%BC%E3%83%90
+        """
+        if record_type in ("dahai", "tsumo", "reach", "pon", "daiminkan", "ankan", "kakan", "nukidora", "hora", "ryukyoku", "dora") \
+            and next_record_type != "dora" : 
             for player_id in range(3) :
                 possible_actions = self.players2vec.get_possible_action_elem(player_id)
-                if len(possible_actions) > 0 : # 選択肢が発生したとき、状態を保存する。
+                if len(possible_actions) > 1 : # 選択肢が発生したとき、状態を保存する。
                     player_elem = self.players2vec.get_player_elem(player_id)
 
                     # sparse feature
@@ -512,11 +511,15 @@ class Mj2Vec :
                     print(f"possible : {possible_feature}")
 
                     # actual
-                    actual_elem = ActionElem(type = "skip", actor = player_id, value = 0)
-                    if next_player_id == player_id :
-                        mjai_elem = ActionElem.from_mjai(next_record)
-                        if mjai_elem is not None :
-                            actual_elem = mjai_elem
+                    if next_record_type in ("tsumo", "reach_accepted") :
+                        # 選択肢が発生している、かつ、next_actionがtsumo/reach_acceptedの場合はskipしていたことになる
+                        actual_elem = ActionElem(type = "skip", value = 0)
+                    elif next_player_id != player_id :
+                        # 選択肢が発生している、かつ、次のplayerが自分でない場合はskipしていたことになる
+                        actual_elem = ActionElem(type = "skip", value = 0)
+                    else :
+                        actual_elem = ActionElem.from_mjai(next_record)
+                        assert actual_elem is not None, f"next record is invalid({next_record})"
 
                     # @debug
                     possible_elems = self.players2vec.get_possible_action_elem(player_id) # @debug
@@ -535,7 +538,7 @@ class Mj2Vec :
                             possible = possible_feature,
                             actual = actual_label)
                     self.features.append(feature)
-    def save(self, dir_name) :
+    def savenpz(self, dir_name) :
         output_dir = Path(dir_name)
         
         sparse_list = []
@@ -560,6 +563,23 @@ class Mj2Vec :
                 possible = np.array(possible_list),
                 actual = np.array(actual_list)
         )
+    def save_to_text(self, dir_name) :
+        output_dir = Path(dir_name)
+        content = ""
+        for feature in self.features :
+            m = re.search("\d{10}gm-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{8}", feature.uuid)
+            filename = m.group(0) + ".txt"
+            output_path = output_dir / filename
+            content += join_num(feature.sparse)  + "\t" \
+                + join_num(feature.numeric) + "\t" \
+                + join_num(feature.progression) + "\t" \
+                + join_num(feature.possible) + "\t" \
+                + str(feature.actual) + "\n"
+        with open(output_path, mode = 'w', encoding = 'utf-8') as file :
+            file.write(content)
+
+def join_num(num_list) :
+    return ",".join([str(n) for n in num_list])
 
 def main() :
     parser = argparse.ArgumentParser()
@@ -572,7 +592,7 @@ def main() :
     mj2vec = Mj2Vec()
     records = load_mjai_records(filename)
     mj2vec.process_records(records)
-    mj2vec.save(args.save_dir_name)
+    mj2vec.savenpz(args.save_dir_name)
 
 if __name__ == '__main__':
     main()

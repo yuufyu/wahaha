@@ -9,3 +9,12 @@ class TestMjai(unittest.TestCase) :
         self.assertEqual(mjai_pai_to_tile34("1m"), 0)
         self.assertEqual(mjai_pai_to_tile34("5m"), 4)
         self.assertEqual(mjai_pai_to_tile34("5mr"), 4)
+
+    # def test_mjai2vec_1(self) :
+    #     filename = "test/test_data/2020010100gm-00b9-0000-7a6863a8.mjson"
+    #     output_dir = "test/result"
+    #     mj2vec = Mj2Vec()
+    #     records = load_mjai_records(filename)
+    #     mj2vec.process_records(records)
+    #     mj2vec.save_to_text(output_dir)
+    

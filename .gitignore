@@ -1,5 +1,7 @@
 # Train model
 model/
+mjson/
+mjson*/
 *.npz
 *.txt
 
