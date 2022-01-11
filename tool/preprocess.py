@@ -3,7 +3,7 @@
 """
 import json
 import argparse
-from features.mjai_encoder import MjFeatureClient, Action
+from features.mjai_encoder import MjaiEncoderClient, Action
 
 def load_mjai_records(filename) :
     records = []
@@ -15,7 +15,7 @@ def load_mjai_records(filename) :
     return records
 
 def process_records(records) :
-    mj_client = MjFeatureClient()
+    mj_client = MjaiEncoderClient()
     train_data = []
     for i in range(len(records) - 1) :
         record = records[i]
@@ -54,7 +54,6 @@ def process_records(records) :
                 actual_label = actual_elem.feature()[0]
                 # print(actual_label, actual_elem)
                 
-                # assert actual_label in mj_client.encode_possible_action(player_id), f"invalid actual feature {actual_label}, {mj_client.encode_possible_action(player_id)}, {mj_client.possible_player_action(player_id)}, {next_record}"
                 train_data.append((feature, actual_label))
 
     return train_data
@@ -70,8 +69,7 @@ def main() :
     train_list = process_records(records)
     
     """
-    format :
-    [data],[label]
+     [空白区切りデータ], [ラベル]
     """
     for train_data in train_list :
         line = " ".join([str(n) for n in train_data[0]]) + "," + str(train_data[1])

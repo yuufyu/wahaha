@@ -20,7 +20,6 @@ class BaseElem :
     BaseElem
     各要素を保持する基底クラス
     """
-    # width = -1
     def __init__(self, *args) :
         self.args = args
     
@@ -285,7 +284,9 @@ class RecordElem(OffsetElem(215 * 3)) :
 class PossibleActionElem(OffsetElem(219)) :
     def values(self, possible_actions) :
         elems = [Action(action) for action in possible_actions]
-        return elems_to_nums(elems)
+        nums = elems_to_nums(elems)
+        assert len(nums) == len(possible_actions), "possible action is duplicate"
+        return nums
 
 class EOF(OffsetElem(0)) :
     pass
@@ -352,7 +353,7 @@ class MjState :
         self.client.action(record)
         self.records.append(record)
 
-class MjFeatureClient :
+class MjaiEncoderClient :
     def __init__(self) :
         self.state = MjState()
         self.possible_generator = MjaiPossibleActionGenerator()
@@ -367,11 +368,9 @@ class MjFeatureClient :
 
         # 重複削除
         possible_mjai_json_actions = [json.dumps(action) for action in possible_mjai_actions]
-        possible_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
+        possible_mjai_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
 
-        assert len([action for action in possible_actions if "actor" in action and action["actor"] != player_id]) == 0
-
-        return possible_actions
+        return possible_mjai_actions
 
     def encode(self, player_id) :
         game_state = self.state.client.game
@@ -381,6 +380,14 @@ class MjFeatureClient :
             game_state,
             self.state.records,
             self.possible_player_action(player_id))
-        return elem.feature()
+        features = elem.feature()
+        assert len(features) <= MAX_TOKEN_LENGTH - 2 , f"Token count is bigger. {MAX_TOKEN_LENGTH}-2 < {len(features)}"
+        return features
+
+"""
+Constant
+"""
+TOKEN_VOCAB_COUNT = EOF.offset
+MAX_TOKEN_LENGTH = 145 # 2(special) + 30(sparse) + 81(progression) + 32(possible)
 
 #EOF

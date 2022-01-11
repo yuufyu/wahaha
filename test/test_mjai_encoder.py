@@ -9,6 +9,9 @@ class TestMjai(unittest.TestCase) :
         self.assertEqual(RecordElem.offset, 404)
         self.assertEqual(PossibleActionElem.offset, 1049)
 
+        self.assertEqual(TOKEN_VOCAB_COUNT, 1268)
+        self.assertEqual(MAX_TOKEN_LENGTH, 145)
+
     def test_DeltaScores(self) :
         self.assertEqual(DeltaScores([35000, 36000, 34000], 0).feature(),[212, 221])
         self.assertEqual(DeltaScores([35000, 39000, 25000], 0).feature(),[213, 225])
