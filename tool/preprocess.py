@@ -5,7 +5,7 @@ import json
 import argparse
 import re
 import itertools
-from pathlib import Path
+# from pathlib import Path
 
 from mjlegal.mjai_possible_action import MjaiPossibleActionGenerator
 from mjlegal.mjai import MjaiLoader
@@ -30,7 +30,7 @@ class BaseElem :
         nums = self.values(*self.args) 
         if type(self).offset != 0 :
             nums = [num + type(self).offset for num in nums]
-        assert type(self).offset <= min(nums + [type(self).offset]) and max(nums + [type(self).offset]) < type(self).width + type(self).offset, f"[{type(self).__name__}]Invalid return values ({type(self).width} + {type(self).offset} <= {nums} )"
+        assert len(nums) == 0 or ( type(self).offset <= min(nums) and max(nums) < type(self).width + type(self).offset ), f"[{type(self).__name__}]Invalid return values ({type(self).width} + {type(self).offset} <= {nums} )"
         return nums 
 
     """
@@ -39,24 +39,30 @@ class BaseElem :
     def values(self, *args) :
         return list(args)
 
-class _ActionBase :
-    # クラス変数に設定するoffset値として使用するため、クラス変数として定義
-    offset = 0
-    @staticmethod
-    def action_elem(width) :
-        offset = _ActionBase.offset
-        _ActionBase.offset += width
+class _OffsetElemBase :
+    def __init__(self) :
+        self.offset = 0
+    # offset = 0     # クラス変数に設定するoffset値として使用するため、クラス変数として定義
+    def __call__(self, width) :
+        offset = self.offset
+        self.offset += width
         return Elem(width, offset)
 
-class Action (_ActionBase) :
+ActionElemBase = _OffsetElemBase()
+
+class _Action :
     def __init__(self) :
-        self.action_classes = {member.typename : member for member in Action.__dict__.values() if hasattr(member, "typename")}
+        self.action_classes = {member.typename : member for member in _Action.__dict__.values() if hasattr(member, "typename")}
 
     def __call__(self, action) :
-        elem_type = self.action_classes[action["type"]]
-        return elem_type(action)
+        action_type = action["type"]
+        elem = None
+        if action_type in self.action_classes :
+            elem_type = self.action_classes[action_type]
+            elem = elem_type(action)
+        return elem
 
-    class Dahai(_ActionBase.action_elem(37*2)) :
+    class Dahai(ActionElemBase(37*2)) :
         typename = "dahai"
         def values(self, action) :
             assert self.typename == action["type"]
@@ -67,13 +73,13 @@ class Action (_ActionBase) :
                 tile37_list[0] *= 2
             return tile37_list
 
-    class Reach(_ActionBase.action_elem(1)) :
+    class Reach(ActionElemBase(1)) :
         typename = "reach"
         def values(self, action) :
             assert self.typename == action["type"]
             return [0]
 
-    class Pon(_ActionBase.action_elem(37)) :
+    class Pon(ActionElemBase(37)) :
         typename = "pon"
         def values(self, action) :
             assert self.typename == action["type"]
@@ -82,50 +88,68 @@ class Action (_ActionBase) :
             tile37_list = [Tile37(pai).feature()[0] for pai in [pai] + consumed]
             tile37 = min(tile37_list) # 赤ドラを含む場合は赤ドラ牌を選出する
             return [tile37]
-    
-    class Daiminkan(_ActionBase.action_elem(34)) :
+
+    class Daiminkan(ActionElemBase(34)) :
         typename = "daiminkan"
         def values(self, action) :
             assert self.typename == action["type"]
             pai = action["pai"]
             tile34_list = Tile34(pai).feature()
             return tile34_list
-    
-    class Kakan(_ActionBase.action_elem(34)) :
+
+    class Kakan(ActionElemBase(34)) :
         typename = "kakan"
         def values(self, action) :
             assert self.typename == action["type"]
             pai = action["pai"]
             tile34_list = Tile34(pai).feature()
             return tile34_list
-    class Ankan(_ActionBase.action_elem(34)) :
+
+    class Ankan(ActionElemBase(34)) :
         typename = "ankan"
         def values(self, action) :
             assert self.typename == action["type"]
-            pai = action["pai"]
-            tile34_list = Tile34(pai).feature()
+            consumed = action["consumed"]
+            tile34_list = Tile34(consumed[0]).feature()
             return tile34_list
 
-    
+    class Nukidora(ActionElemBase(1)) :
+        typename = "nukidora"
+        def values(self, action) :
+            assert self.typename == action["type"]
+            return [0]
 
+    class Hora(ActionElemBase(2)) :
+        typename = "hora"
+        def values(self, action) :
+            assert self.typename == action["type"]
+            num = int(action["target"] != action["actor"])
+            return [num]
+
+    class Ryukyoku(ActionElemBase(1)) :
+        typename = "ryukyoku"
+        def values(self, action) :
+            assert self.typename == action["type"]
+            return [0]
+
+    class Skip(ActionElemBase(1)) :
+        typename = "none"
+        def values(self, action) :
+            assert self.typename == action["type"]
+            return [0]
+
+Action = _Action()
+    
 """
  Define Elements
 """
-class GameStyle(Elem(2)) :
-    pass
-
-class PlayerId(Elem(3)) :
-    pass
-
-class Kyoku(Elem(3)) :
-    def values(self, kyoku) :
-        return [kyoku - 1]
+GameStateElemBase = _OffsetElemBase()
 
 class Tile34(Elem(34)) :
-    def values(self, pai_str) :
-        tile34 = TilesUtil.tiles_to_tiles34([Tile.from_str(pai_str)])
+    def values(self, pai) :
+        tile34 = TilesUtil.tiles_to_tiles34([Tile.from_str(pai)])
         return [tile34.index(1)]
-
+        
 class Tile37(Elem(37)) :
     TILE37_SUIT_OFFSET_TABLE = {"m" : 0, "p" : 10, "s" : 20, "z" : 29 }
     TILE37_LOOKUP_MJAI_PAI_NAME_TABLE = {'5mr': '0m', '5pr': '0p', '5sr': '0s', 'E': '1z', 'S': '2z', 'W': '3z', 'N': '4z', 'P': '5z', 'F': '6z', 'C': '7z'}
@@ -138,30 +162,43 @@ class Tile37(Elem(37)) :
         tile37 = offset + num
         return [tile37]
 
-class Tile136(Elem(136)) :
-    def values(self, tiles) :
-        tiles136 = TilesUtil.tiles_to_tiles136(tiles)
-        tiles136.sort()
-        return tiles136
+class GameStyle(GameStateElemBase(2)) :
+    pass
 
-class Honba(Elem(4)) :
+class PlayerId(GameStateElemBase(3)) :
+    pass
+
+class Kyoku(GameStateElemBase(3)) :
+    def values(self, kyoku) :
+        return [kyoku - 1]
+
+class Honba(GameStateElemBase(4)) :
     def values(self, honba) :
         return [min(Honba.width - 1, honba)]
 
-class Kyotaku(Elem(3)) :
+class Kyotaku(GameStateElemBase(3)) :
     def values(self, kyotaku) :
         return [min(Kyotaku.width - 1, kyotaku)]
 
-class Bakaze(Elem(3)) :
+class Bakaze(GameStateElemBase(3)) :
     def values(self, bakaze_str) :
         return ["ESW".index(bakaze_str)]
 
-class DoraMarkers(Elem(37 * 5)) :
+class DoraMarkers(GameStateElemBase(37 * 5)) :
     def values(self, dora_markers) :
-        return encode_elems([Tile37(tile.to_str()) for tile in dora_markers])
+        assert len(dora_markers) <= 5
+        res = []
+        offset = 0
+        for tile in dora_markers :
+            tile37 = Tile37(tile.to_str()).feature()[0]
+            tile37 += offset
+            offset += 37
+            res.append(tile37)
+        return res
 
-class Rank(Elem(6)) :
-    def values(self, abs_scores, player_id) :
+class Rank(GameStateElemBase(6)) :
+    RANKS_TO_FEATURE_LOOKUP_TABLE = list(itertools.permutations(range(3)))
+    def get_rel_rank(self, abs_scores, player_id) :
         rel_scores = sort_rel_scores(abs_scores, player_id)
 
         # Calculate ranking by Mahjong rule
@@ -172,23 +209,35 @@ class Rank(Elem(6)) :
             ranks[indices] = i
         return ranks
 
+    def values(self, abs_scores, player_id) :
+        ranks = self.get_rel_rank(abs_scores, player_id)
+        ranks_feature = type(self).RANKS_TO_FEATURE_LOOKUP_TABLE.index(tuple(ranks))
+        return [ranks_feature]
+
 DELTA_SCORE_BINS = [2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000]
-class DeltaScores(Elem(len(DELTA_SCORE_BINS) + 1)) :
+class DeltaScores(GameStateElemBase(len(DELTA_SCORE_BINS) + 1)) :
     def values(self, abs_scores, player_id) :
         rel_scores = sort_rel_scores(abs_scores, player_id)
 
         # delta_scoreに変換
         delta_scores = [rel_scores[0] - score for score in rel_scores]
-        return [next((idx for idx, bin in enumerate(DELTA_SCORE_BINS) if abs(delta) <= bin), len(DELTA_SCORE_BINS)) for delta in delta_scores ]
+        score_classes =  [next((idx for idx, bin in enumerate(DELTA_SCORE_BINS) if abs(delta) <= bin), len(DELTA_SCORE_BINS)) for delta in delta_scores ]
+        return score_classes[1:] # 自分以外を返す
 
-class TsumoTile(Tile37) :
+class Tehai(GameStateElemBase(136)) :
+    def values(self, tiles) :
+        tiles136 = TilesUtil.tiles_to_tiles136(tiles)
+        tiles136.sort()
+        return tiles136
+
+class TsumoTile(GameStateElemBase(37)) :
     def values(self, tsumo_tile) :
         tile37 = []
         if tsumo_tile :
-            tile37 = super().values(tsumo_tile.to_str())
+            tile37 = Tile37(tsumo_tile.to_str()).feature()
         return tile37
 
-class NanElem(Elem(0)) :
+class NanElem(GameStateElemBase(0)) :
     def values(self, _) :
         return []
 
@@ -201,15 +250,6 @@ def sort_rel_scores(abs_scores, player_id) :
 """
 def elems_to_nums(elems) :
     return list(itertools.chain.from_iterable(elem.feature() for elem in elems))
-
-def encode_elems(elems) :
-    result = []
-    offset = 0
-    for elem in elems : 
-        nums = elem.feature()
-        result.extend([num + offset for num in nums])
-        offset += elem.width
-    return result
 
 """
 Mahjong game state
@@ -272,7 +312,7 @@ class MjFeatureClient :
         return possible_player_actions
 
     def encode(self, player_id) :
-        return self.encode_game_state(player_id)
+        return self.encode_game_state(player_id) + self.encode_record(player_id)
 
     def encode_game_state(self, player_id) :
         game_state = self.state.client.game
@@ -287,13 +327,24 @@ class MjFeatureClient :
             DoraMarkers(game_state.dora_markers),
             Rank(game_state.scores, player_id),
             DeltaScores(game_state.scores, player_id),
-            Tile136(player_state.tiles),
+            Tehai(player_state.tiles),
             TsumoTile(player_state.tsumo_tile)
         ]
-        return encode_elems(elems)
+        return elems_to_nums(elems)
 
     def encode_record(self, player_id) :
-        pass
+        features = []
+        player_record_width = Action.Hora.offset # hora以降のActionは使用しない
+        record_offset = NanElem().offset
+        for record in self.state.records :
+            action = Action(record)
+            if action is not None :
+                rel_player_id = (record["actor"] - player_id + 3) % 3 # 相対idを計算
+                feature = [(rel_player_id * player_record_width) + f + record_offset for f in action.feature()]
+                features.extend(feature)
+        print(self.state.records[-1])
+        return features
+
     def encode_possible_action(self, player_id) :
         pass
 
