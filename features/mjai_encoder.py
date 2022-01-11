@@ -10,14 +10,6 @@ from mjlegal.mjai import MjaiLoader
 from mjlegal.mjtypes import Tile, TilesUtil
 
 """
-Special token
-"""
-TOKEN_ID_CLS = 1
-TOKEN_ID_SEP = 2
-TOKEN_ID_PAD = 0
-TOKEN_ID_MASK = -100 # see : hugging face attention mask
-
-"""
 分類数を保持したクラスを返す
 """
 def Elem(width, offset = 0):
@@ -173,8 +165,14 @@ class Tile37(Elem(37)) :
         tile37 = offset + num
         return [tile37]
 
-# padding
-class Padding(GameStateElemBase(1)) :
+# Special token
+class TokenPad(GameStateElemBase(1)) :
+    pass
+
+class TokenCls(GameStateElemBase(1)) :
+    pass
+
+class TokenSep(GameStateElemBase(1)) :
     pass
 
 class GameStyle(GameStateElemBase(2)) :
@@ -260,6 +258,14 @@ class NanElem(GameStateElemBase(0)) :
 def sort_rel_scores(abs_scores, player_id) :
     # scoreの並び順をplayer_id視点における順序に変更
     return [abs_scores[(i + player_id) % 3]  for i in range(3)]
+
+"""
+Special token
+"""
+TOKEN_ID_CLS = TokenCls.offset
+TOKEN_ID_SEP = TokenSep.offset
+TOKEN_ID_PAD = TokenPad.offset
+TOKEN_ID_MASK = -100 # see : hugging face attention mask
 
 """
  elem to feature
@@ -373,5 +379,6 @@ class MjFeatureClient :
         features.sort()
         
         return features
+
 
 #EOF
