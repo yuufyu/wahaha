@@ -23,3 +23,18 @@ class TestMjai(unittest.TestCase) :
         self.assertEqual(Rank([1000,2000,3000], 0).feature(), [2,1,0])
         self.assertEqual(Rank([1000,2000,3000], 1).feature(), [1,0,2])
         self.assertEqual(Rank([1000,2000,3000], 2).feature(), [0,2,1])
+
+    def test_Action(self) :
+        action = Action()
+
+        mjai = {"type" : "dahai", "pai" : "0m", "tsumogiri" : False}
+        self.assertEqual(action(mjai).feature(), [0])
+
+        mjai = {'type': 'pon', 'actor': 0, 'target': 1, 'pai': '0m', 'consumed': ['5m', '5m']}
+        self.assertEqual(action(mjai).feature(), [75])
+
+        mjai = {'type': 'pon', 'actor': 0, 'target': 1, 'pai': '5m', 'consumed': ['5m', '5m']}
+        self.assertEqual(action(mjai).feature(), [80])
+
+
+
