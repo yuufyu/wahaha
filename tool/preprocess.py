@@ -5,7 +5,6 @@ import json
 import argparse
 import re
 import itertools
-# from pathlib import Path
 
 from mjlegal.mjai_possible_action import MjaiPossibleActionGenerator
 from mjlegal.mjai import MjaiLoader
@@ -39,10 +38,13 @@ class BaseElem :
     def values(self, *args) :
         return list(args)
 
+"""
+offset値をElemクラス定義に保持させる。
+offsetの並びはクラス定義順となることに注意。
+"""
 class _OffsetElemBase :
     def __init__(self) :
         self.offset = 0
-    # offset = 0     # クラス変数に設定するoffset値として使用するため、クラス変数として定義
     def __call__(self, width) :
         offset = self.offset
         self.offset += width
@@ -70,7 +72,7 @@ class _Action :
             tsumogiri = action["tsumogiri"]
             tile37_list = Tile37(pai).feature()
             if tsumogiri :
-                tile37_list[0] *= 2
+                tile37_list[0] += 37
             return tile37_list
 
     class Reach(ActionElemBase(1)) :
@@ -137,6 +139,8 @@ class _Action :
         def values(self, action) :
             assert self.typename == action["type"]
             return [0]
+    
+    PLAYER_ACTION_WIDTH = Hora.offset
 
 Action = _Action()
     
@@ -226,6 +230,7 @@ class DeltaScores(GameStateElemBase(len(DELTA_SCORE_BINS) + 1)) :
 
 class Tehai(GameStateElemBase(136)) :
     def values(self, tiles) :
+        # ツモ牌も含む
         tiles136 = TilesUtil.tiles_to_tiles136(tiles)
         tiles136.sort()
         return tiles136
@@ -291,28 +296,31 @@ class MjFeatureClient :
     def update(self, record) :
         self.state.update(record)
 
-    def possible_action(self, player_id) :
+    def possible_player_action(self, player_id) :
         game_state = self.state.client.game
         game_state.player_id = player_id
-
-        possible_actions = self.possible_generator.possible_mjai_action(game_state)
+        possible_mjai_actions = self.possible_generator.possible_mjai_action(game_state)
 
         # 重複削除
-        possible_mjai_json_actions = [json.dumps(action) for action in possible_actions]
-        possible_mjai_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
+        possible_mjai_json_actions = [json.dumps(action) for action in possible_mjai_actions]
+        possible_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
 
-        # player_idのactionのみ抽出
-        possible_player_actions = []
-        for mjai_action in possible_mjai_actions :
-            if "actor" in mjai_action and mjai_action["actor"] == player_id :
-                possible_player_actions.append(mjai_action)
-            elif mjai_action["type"] == "none" :
-                possible_player_actions.append(mjai_action)
+        assert len([action for action in possible_actions if "actor" in action and action["actor"] != player_id]) == 0
 
-        return possible_player_actions
+        return possible_actions
 
     def encode(self, player_id) :
-        return self.encode_game_state(player_id) + self.encode_record(player_id)
+        game_state_features = self.encode_game_state(player_id)
+
+        record_offset = NanElem.offset
+        record_features = self.encode_record(player_id)
+        record_features = [feature + record_offset for feature in record_features]
+
+        possible_action_offset = Action.PLAYER_ACTION_WIDTH + (NanElem.offset * 3)
+        possible_features = self.encode_possible_action(player_id)
+        possible_features = [feature + possible_action_offset for feature in possible_features]
+
+        return game_state_features + record_features + possible_features
 
     def encode_game_state(self, player_id) :
         game_state = self.state.client.game
@@ -334,19 +342,26 @@ class MjFeatureClient :
 
     def encode_record(self, player_id) :
         features = []
-        player_record_width = Action.Hora.offset # hora以降のActionは使用しない
-        record_offset = NanElem().offset
+        player_record_width = Action.PLAYER_ACTION_WIDTH  # hora以降のActionは使用しない
+        
         for record in self.state.records :
             action = Action(record)
             if action is not None :
                 rel_player_id = (record["actor"] - player_id + 3) % 3 # 相対idを計算
-                feature = [(rel_player_id * player_record_width) + f + record_offset for f in action.feature()]
+                feature = [(rel_player_id * player_record_width) + f for f in action.feature()]
                 features.extend(feature)
-        print(self.state.records[-1])
         return features
 
     def encode_possible_action(self, player_id) :
-        pass
+        possible_action = self.possible_player_action(player_id)
+
+        elems = [Action(action) for action in possible_action]
+        features = elems_to_nums(elems)
+        assert len(features) == len(set(features)), f"duplicate  {len(features)} != {len(set(features))}, {possible_action}, {features}"
+        
+        features.sort()
+        
+        return features
 
 """
  preprocess
@@ -371,29 +386,40 @@ def process_records(records) :
         mj_client.update(record)
         
         for player_id in range(3) :
-            possible_actions = mj_client.possible_action(player_id)
+            # MjaiPossibleActionGeneratorは複数playerのactionを返すことができないため、player数分呼び出す必要がある
+            possible_actions = mj_client.possible_player_action(player_id)
 
-            # 選択肢が発生
+            # playerに選択肢が発生したとき
             if len(possible_actions) > 1 :
                 next_record = records[i + 1]
 
-                # playerが選択しないactionは学習しない
+                # playerが選択しないactionは学習しない(dora etc..)
                 if not("actor" in next_record) :
                     continue
                 
                 if next_record["type"] in ("tsumo", "reach_accepted") :# Skip選択
-                    pass #actual_label = SKIP 
+                    actual_elem = Action({"type" : "none"}) 
                 elif player_id != next_record["actor"] : # Skip選択
-                    pass #actual_label = SKIP
+                    actual_elem = Action({"type" : "none"})
                 else :
-                    pass #actual_label = Action(actual_action)
+                    """
+                    [NOTE] 副露した後の打牌がtsumogiri = Trueになることがあるため、tsumogiri = Falseに直す。
+                    MjStateで同じ処理を行っているが、MjState単独での使用を想定して両方とも残す。
+                    """
+                    if next_record["type"] == "dahai" and record["type"] in ("pon", "daiminkan") :
+                        next_record["tsumogiri"] = False
+
+                    actual_elem = Action(next_record)
 
                 # feature
                 feature = mj_client.encode(player_id)
                 print(feature)
-                # assert actual_label in possible_feature, f"invalid actual feature {actual_label}"
+
+                actual_label = actual_elem.feature()[0]
+                print(actual_label, actual_elem)
                 
-                # train_data.append((feature, actual_label))
+                assert actual_label in mj_client.encode_possible_action(player_id), f"invalid actual feature {actual_label}, {mj_client.encode_possible_action(player_id)}, {mj_client.possible_player_action(player_id)}, {next_record}"
+                train_data.append((feature, actual_label))
 
     return train_data
 

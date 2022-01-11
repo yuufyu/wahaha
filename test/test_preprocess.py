@@ -31,3 +31,10 @@ class TestMjai(unittest.TestCase) :
 
         mjai = {'type': 'pon', 'actor': 0, 'target': 1, 'pai': '5m', 'consumed': ['5m', '5m']}
         self.assertEqual(Action(mjai).feature(), [80])
+
+        mjai = {'type': 'dahai', 'actor': 2, 'pai': '5p', 'tsumogiri': True}
+        self.assertEqual(Action(mjai).feature(), [52])
+
+        mjai = {'type': 'dahai', 'actor': 2, 'pai': 'E', 'tsumogiri': False}
+        self.assertEqual(Action(mjai).feature(), [30])
+
