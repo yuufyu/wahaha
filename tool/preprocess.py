@@ -54,7 +54,7 @@ def process_records(records) :
                 actual_label = actual_elem.feature()[0]
                 # print(actual_label, actual_elem)
                 
-                assert actual_label in mj_client.encode_possible_action(player_id), f"invalid actual feature {actual_label}, {mj_client.encode_possible_action(player_id)}, {mj_client.possible_player_action(player_id)}, {next_record}"
+                # assert actual_label in mj_client.encode_possible_action(player_id), f"invalid actual feature {actual_label}, {mj_client.encode_possible_action(player_id)}, {mj_client.possible_player_action(player_id)}, {next_record}"
                 train_data.append((feature, actual_label))
 
     return train_data

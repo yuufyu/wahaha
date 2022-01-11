@@ -3,11 +3,18 @@ from features.mjai_encoder import *
 # from mjlegal.mjtypes import Tile, TilesUtil
 
 class TestMjai(unittest.TestCase) :
+    def test_Elem_offset(self) :
+        # self.assertEqual(GameStateElem.offset, 3)
+        self.assertEqual(BeginRecordElem.offset, 403)
+        self.assertEqual(RecordElem.offset, 404)
+        self.assertEqual(PossibleActionElem.offset, 1049)
+
     def test_DeltaScores(self) :
-        self.assertEqual(DeltaScores([35000, 39000, 25000], 0).feature(),[213,216] )
+        self.assertEqual(DeltaScores([35000, 36000, 34000], 0).feature(),[212, 221])
+        self.assertEqual(DeltaScores([35000, 39000, 25000], 0).feature(),[213, 225])
     
     def test_Bakaze(self) :
-        self.assertEqual(Bakaze("E").feature(), [18])
+        self.assertEqual(Bakaze("E").feature(), [8])
         
     def test_DoraMarkers(self) :
         tiles = ["1m", "2m", "C", "C"]

@@ -20,7 +20,7 @@ class BaseElem :
     BaseElem
     各要素を保持する基底クラス
     """
-    width = -1
+    # width = -1
     def __init__(self, *args) :
         self.args = args
     
@@ -48,20 +48,44 @@ class _OffsetElemBase :
         offset = self.offset
         self.offset += width
         return Elem(width, offset)
+    
+"""
+ Define Elements
+"""
+class Tile34(Elem(34)) :
+    def values(self, pai) :
+        tile34 = TilesUtil.tiles_to_tiles34([Tile.from_str(pai)])
+        return [tile34.index(1)]
+        
+class Tile37(Elem(37)) :
+    TILE37_SUIT_OFFSET_TABLE = {"m" : 0, "p" : 10, "s" : 20, "z" : 29 }
+    TILE37_LOOKUP_MJAI_PAI_NAME_TABLE = {'5mr': '0m', '5pr': '0p', '5sr': '0s', 'E': '1z', 'S': '2z', 'W': '3z', 'N': '4z', 'P': '5z', 'F': '6z', 'C': '7z'}
+    def values(self, pai_str) :
+        tile_str = Tile37.TILE37_LOOKUP_MJAI_PAI_NAME_TABLE[pai_str] if pai_str in Tile37.TILE37_LOOKUP_MJAI_PAI_NAME_TABLE else pai_str
+        num = int(tile_str[0])
+        suit = tile_str[1]
+        assert not("z" == suit and (num < 1 or 7 < num) )
+        offset = Tile37.TILE37_SUIT_OFFSET_TABLE[suit]
+        tile37 = offset + num
+        return [tile37]
+
+def sort_rel_scores(abs_scores, player_id) :
+    # scoreの並び順をplayer_id視点における順序に変更
+    return [abs_scores[(i + player_id) % 3]  for i in range(3)]
 
 ActionElemBase = _OffsetElemBase()
-
-class _Action :
-    def __init__(self) :
-        self.action_classes = {member.typename : member for member in _Action.__dict__.values() if hasattr(member, "typename")}
-
-    def __call__(self, action) :
+class ActionBase (BaseElem):
+    def __init__(self, action) :
+        self.action_classes = {member.typename : member for member in ActionBase.__dict__.values() if hasattr(member, "typename")}
+        super().__init__(action)
+        
+    def values(self, action) :
         action_type = action["type"]
-        elem = None
+        elems = []
         if action_type in self.action_classes :
             elem_type = self.action_classes[action_type]
-            elem = elem_type(action)
-        return elem
+            elems.append(elem_type(action))
+        return elems_to_nums(elems)
 
     class Dahai(ActionElemBase(37*2)) :
         typename = "dahai"
@@ -141,63 +165,41 @@ class _Action :
     
     PLAYER_ACTION_WIDTH = Hora.offset
 
-Action = _Action()
-    
+class Action(Elem(219), ActionBase) :
+    pass
+
 """
- Define Elements
+ annotation
 """
-GameStateElemBase = _OffsetElemBase()
+OffsetElem = _OffsetElemBase()
 
-class Tile34(Elem(34)) :
-    def values(self, pai) :
-        tile34 = TilesUtil.tiles_to_tiles34([Tile.from_str(pai)])
-        return [tile34.index(1)]
-        
-class Tile37(Elem(37)) :
-    TILE37_SUIT_OFFSET_TABLE = {"m" : 0, "p" : 10, "s" : 20, "z" : 29 }
-    TILE37_LOOKUP_MJAI_PAI_NAME_TABLE = {'5mr': '0m', '5pr': '0p', '5sr': '0s', 'E': '1z', 'S': '2z', 'W': '3z', 'N': '4z', 'P': '5z', 'F': '6z', 'C': '7z'}
-    def values(self, pai_str) :
-        tile_str = Tile37.TILE37_LOOKUP_MJAI_PAI_NAME_TABLE[pai_str] if pai_str in Tile37.TILE37_LOOKUP_MJAI_PAI_NAME_TABLE else pai_str
-        num = int(tile_str[0])
-        suit = tile_str[1]
-        assert not("z" == suit and (num < 1 or 7 < num) )
-        offset = Tile37.TILE37_SUIT_OFFSET_TABLE[suit]
-        tile37 = offset + num
-        return [tile37]
+class SpecialTokens(OffsetElem(3)) :
+    def values(self, _) :
+        return []
 
-# Special token
-class TokenPad(GameStateElemBase(1)) :
+class GameStyle(OffsetElem(2)) :
     pass
 
-class TokenCls(GameStateElemBase(1)) :
+class PlayerId(OffsetElem(3)) :
     pass
 
-class TokenSep(GameStateElemBase(1)) :
-    pass
-
-class GameStyle(GameStateElemBase(2)) :
-    pass
-
-class PlayerId(GameStateElemBase(3)) :
-    pass
-
-class Kyoku(GameStateElemBase(3)) :
-    def values(self, kyoku) :
-        return [kyoku - 1]
-
-class Honba(GameStateElemBase(4)) :
-    def values(self, honba) :
-        return [min(Honba.width - 1, honba)]
-
-class Kyotaku(GameStateElemBase(3)) :
-    def values(self, kyotaku) :
-        return [min(Kyotaku.width - 1, kyotaku)]
-
-class Bakaze(GameStateElemBase(3)) :
+class Bakaze(OffsetElem(3)) :
     def values(self, bakaze_str) :
         return ["ESW".index(bakaze_str)]
 
-class DoraMarkers(GameStateElemBase(37 * 5)) :
+class Kyoku(OffsetElem(3)) :
+    def values(self, kyoku) :
+        return [kyoku - 1]
+
+class Honba(OffsetElem(4)) :
+    def values(self, honba) :
+        return [min(Honba.width - 1, honba)]
+
+class Kyotaku(OffsetElem(3)) :
+    def values(self, kyotaku) :
+        return [min(Kyotaku.width - 1, kyotaku)]
+
+class DoraMarkers(OffsetElem(37 * 5)) :
     def values(self, dora_markers) :
         assert len(dora_markers) <= 5
         res = []
@@ -209,7 +211,7 @@ class DoraMarkers(GameStateElemBase(37 * 5)) :
             res.append(tile37)
         return res
 
-class Rank(GameStateElemBase(6)) :
+class Rank(OffsetElem(6)) :
     RANKS_TO_FEATURE_LOOKUP_TABLE = list(itertools.permutations(range(3)))
     def get_rel_rank(self, abs_scores, player_id) :
         rel_scores = sort_rel_scores(abs_scores, player_id)
@@ -228,44 +230,89 @@ class Rank(GameStateElemBase(6)) :
         return [ranks_feature]
 
 DELTA_SCORE_BINS = [2000, 4000, 6000, 8000, 10000, 12000, 14000, 16000]
-class DeltaScores(GameStateElemBase(len(DELTA_SCORE_BINS) + 1)) :
+class DeltaScores(OffsetElem((len(DELTA_SCORE_BINS) + 1) * 2)) :
     def values(self, abs_scores, player_id) :
         rel_scores = sort_rel_scores(abs_scores, player_id)
 
         # delta_scoreに変換
         delta_scores = [rel_scores[0] - score for score in rel_scores]
         score_classes =  [next((idx for idx, bin in enumerate(DELTA_SCORE_BINS) if abs(delta) <= bin), len(DELTA_SCORE_BINS)) for delta in delta_scores ]
-        return score_classes[1:] # 自分以外を返す
+        return [score_classes[1], score_classes[2] + len(DELTA_SCORE_BINS) + 1]
 
-class Tehai(GameStateElemBase(136)) :
+class Tehai(OffsetElem(136)) :
     def values(self, tiles) :
         # ツモ牌も含む
         tiles136 = TilesUtil.tiles_to_tiles136(tiles)
         tiles136.sort()
         return tiles136
 
-class TsumoTile(GameStateElemBase(37)) :
+class TsumoTile(OffsetElem(37)) :
     def values(self, tsumo_tile) :
         tile37 = []
         if tsumo_tile :
             tile37 = Tile37(tsumo_tile.to_str()).feature()
         return tile37
 
-class NanElem(GameStateElemBase(0)) :
-    def values(self, _) :
-        return []
+class BeginRecordElem(OffsetElem(1)) :
+    def values(self) :
+        return [0]
 
-def sort_rel_scores(abs_scores, player_id) :
-    # scoreの並び順をplayer_id視点における順序に変更
-    return [abs_scores[(i + player_id) % 3]  for i in range(3)]
+RecordElemBase = _OffsetElemBase()
+class RecordPlayerElem_0(RecordElemBase(215), ActionBase) :
+    pass
+class RecordPlayerElem_1(RecordElemBase(215), ActionBase) :
+    pass
+class RecordPlayerElem_2(RecordElemBase(215), ActionBase) :
+    pass
+        
+class RecordElem(OffsetElem(215 * 3)) :
+    RECORD_PLAYER_ELEM_CLASSES = [RecordPlayerElem_0, RecordPlayerElem_1, RecordPlayerElem_2]
+    
+    def values(self, records, player_id) :
+        #player_id : 現在の主観player_id
+        elems = []
+        for record in records :
+            if "actor" in record :
+                # 相対player_id
+                rel_player_id = (record["actor"] - player_id + 3) % 3 
 
-"""
-Special token
-"""
-TOKEN_ID_CLS = TokenCls.offset
-TOKEN_ID_SEP = TokenSep.offset
-TOKEN_ID_PAD = TokenPad.offset
-TOKEN_ID_MASK = -100 # see : hugging face attention mask
+                # 相対player_idに応じて異なるActionBaseを作成
+                elem_type = type(self).RECORD_PLAYER_ELEM_CLASSES[rel_player_id]
+                elem = elem_type(record)
+                elems.append(elem)
+        return elems_to_nums(elems)
+
+class PossibleActionElem(OffsetElem(219)) :
+    def values(self, possible_actions) :
+        elems = [Action(action) for action in possible_actions]
+        return elems_to_nums(elems)
+
+class EOF(OffsetElem(0)) :
+    pass
+
+class AnnotateElem(Elem(EOF.offset)) :
+    """
+    全体をencodeするElem
+    """
+    def values(self, game_type, start_kyoku, player_id, game_state, records, possible_actions) :
+        player_state = game_state.player_states[player_id]
+        elems = [
+            GameStyle(game_type),
+            PlayerId(player_id),
+            Bakaze(start_kyoku["bakaze"]),
+            Kyoku(start_kyoku["kyoku"]),
+            Honba(start_kyoku["honba"]),
+            Kyotaku(start_kyoku["kyotaku"]),
+            DoraMarkers(game_state.dora_markers),
+            Rank(game_state.scores, player_id),
+            DeltaScores(game_state.scores, player_id),
+            Tehai(player_state.tiles),
+            TsumoTile(player_state.tsumo_tile),
+            BeginRecordElem(),
+            RecordElem(records, player_id),
+            PossibleActionElem(possible_actions)
+        ]
+        return elems_to_nums(elems)
 
 """
  elem to feature
@@ -327,58 +374,13 @@ class MjFeatureClient :
         return possible_actions
 
     def encode(self, player_id) :
-        game_state_features = self.encode_game_state(player_id)
-
-        record_offset = NanElem.offset
-        record_features = self.encode_record(player_id)
-        record_features = [feature + record_offset for feature in record_features]
-
-        possible_action_offset = Action.PLAYER_ACTION_WIDTH + (NanElem.offset * 3)
-        possible_features = self.encode_possible_action(player_id)
-        possible_features = [feature + possible_action_offset for feature in possible_features]
-
-        return game_state_features + record_features + possible_features
-
-    def encode_game_state(self, player_id) :
         game_state = self.state.client.game
-        player_state = game_state.player_states[player_id]
-        elems = [
-            GameStyle(self.state.game_type),
-            PlayerId(player_id),
-            Bakaze(self.state.start_kyoku_record["bakaze"]),
-            Kyoku(self.state.start_kyoku_record["kyoku"]),
-            Honba(self.state.start_kyoku_record["honba"]),
-            Kyotaku(self.state.start_kyoku_record["kyotaku"]),
-            DoraMarkers(game_state.dora_markers),
-            Rank(game_state.scores, player_id),
-            DeltaScores(game_state.scores, player_id),
-            Tehai(player_state.tiles),
-            TsumoTile(player_state.tsumo_tile)
-        ]
-        return elems_to_nums(elems)
-
-    def encode_record(self, player_id) :
-        features = []
-        player_record_width = Action.PLAYER_ACTION_WIDTH  # hora以降のActionは使用しない
-        
-        for record in self.state.records :
-            action = Action(record)
-            if action is not None :
-                rel_player_id = (record["actor"] - player_id + 3) % 3 # 相対idを計算
-                feature = [(rel_player_id * player_record_width) + f for f in action.feature()]
-                features.extend(feature)
-        return features
-
-    def encode_possible_action(self, player_id) :
-        possible_action = self.possible_player_action(player_id)
-
-        elems = [Action(action) for action in possible_action]
-        features = elems_to_nums(elems)
-        assert len(features) == len(set(features)), f"duplicate  {len(features)} != {len(set(features))}, {possible_action}, {features}"
-        
-        features.sort()
-        
-        return features
-
+        elem = AnnotateElem(self.state.game_type,
+            self.state.start_kyoku_record,
+            player_id,
+            game_state,
+            self.state.records,
+            self.possible_player_action(player_id))
+        return elem.feature()
 
 #EOF
