@@ -3,7 +3,7 @@
 """
 import json
 import argparse
-from features.mjai_encoder import MjaiEncoderClient, Action
+from features.simple_encoder import MjaiEncoderClient, Action
 
 def load_mjai_records(filename) :
     records = []
@@ -34,9 +34,9 @@ def process_records(records) :
                     continue
                 
                 if next_record["type"] in ("tsumo", "reach_accepted") :# Skip選択
-                    actual_elem = Action({"type" : "none"}) 
+                    actual = Action.encode({"type" : "none"}) 
                 elif player_id != next_record["actor"] : # Skip選択
-                    actual_elem = Action({"type" : "none"})
+                    actual = Action.encode({"type" : "none"})
                 else :
                     """
                     [NOTE] 副露した後の打牌がtsumogiri = Trueになることがあるため、tsumogiri = Falseに直す。
@@ -45,16 +45,12 @@ def process_records(records) :
                     if next_record["type"] == "dahai" and record["type"] in ("pon", "daiminkan") :
                         next_record["tsumogiri"] = False
 
-                    actual_elem = Action(next_record)
+                    actual = Action.encode(next_record)
 
                 # feature
                 feature = mj_client.encode(player_id)
-                # print(feature)
 
-                actual_label = actual_elem.feature()[0]
-                # print(actual_label, actual_elem)
-                
-                train_data.append((feature, actual_label))
+                train_data.append((feature, actual))
 
     return train_data
 
