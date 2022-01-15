@@ -3,7 +3,7 @@
 """
 import json
 import argparse
-from features.simple_encoder import MjaiEncoderClient, Action
+from features.mjai_encoder import MjaiEncoderClient, Action
 
 def load_mjai_records(filename) :
     records = []
