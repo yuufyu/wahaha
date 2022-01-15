@@ -65,8 +65,7 @@ def process_records(records) :
         for player_id in range(3) :
             if record["type"] == "tsumo" and record["actor"] == player_id :
                 # 自家のツモ番後
-                next_record = records[i + 1]
-                assert next_record["type"] in ("dahai", "reach", "hora", "ankan", "kakan", "nukidora", "ryukyoku"), "invalid action after tsumo"
+                next_record = next_record = next((r for r in records[i + 1:] if r["type"] in ("dahai", "reach", "hora", "ankan", "kakan", "nukidora", "ryukyoku")), None)
                 actual = Action.encode(next_record)
 
                 # 動作決定点を学習対象に追加

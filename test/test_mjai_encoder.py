@@ -10,6 +10,20 @@ def test_encode_record(records, player_id) :
     return client.encode(player_id)
     
 class TestSimpleEncoder(unittest.TestCase) :
+    def test_next_record(self) :
+        records = [ 
+            {"type":"dora","dora_marker":"6s"},
+            {"type":"tsumo","actor":1,"pai":"6p"},
+            {"type":"dora","dora_marker":"1p"},
+            {"type":"dahai","actor":1,"pai":"6p","tsumogiri":False},
+            {"type":"tsumo","actor":2,"pai":"1s"},
+            {"type":"pon","actor":0,"target":2,"pai":"S","consumed":["S","S"]}
+        ]
+        i = 2
+        next_record = next((r for r in records[i + 1:] if r["type"] in ("pon", "daiminkan", "hora")), None)
+        expect = {"type":"pon","actor":0,"target":2,"pai":"S","consumed":["S","S"]}
+        self.assertEqual(next_record, expect)
+
     def test_mjai_encoder_client(self) :
         input_records = [ # tonpu
             {"type":"start_game","names":["x","x","x"],"uri":"http://tenhou.net/0/?log=2000080000gm-00b1-0000-6b000000&tw=0"},
@@ -202,11 +216,11 @@ class TestPreprocess(unittest.TestCase) :
             {"type":"pon","actor":2,"target":0,"pai":"8p","consumed":["8p","8p"]},
             {"type":"dahai","actor":2,"pai":"4s","tsumogiri":True},
             {"type":"tsumo","actor":0,"pai":"9s"}
-        ]
+            ]
         expected_records = [
             {"type":"pon","actor":2,"target":0,"pai":"8p","consumed":["8p","8p"]},
             {"type":"dahai","actor":2,"pai":"4s","tsumogiri":False},
             {"type":"tsumo","actor":0,"pai":"9s"}
-        ]
+            ]
         fix_records(input_records)
         self.assertEqual(input_records, expected_records)
