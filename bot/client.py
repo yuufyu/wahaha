@@ -4,7 +4,7 @@ from .bert import BertClassification
 from features.mj2vec import Sparse2Vec, Players2Vec, ActionElem
 from features.mj2vec import SPARSE_FEATURE_PADDING, PROGRESSION_FEATURE_PADDING, POSSIBLE_FEATURE_PADDING
 
-MJAI_BOT_NAME = "wahaha"
+MJAI_BOT_NAME = "bot"
 
 TRAIN_TOKEN_OFFSET = 2 # 0:CLS, 1:SEP
 TRAIN_TOKEN_CLS     = 0
