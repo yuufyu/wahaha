@@ -271,7 +271,8 @@ class MjaiStateEncoder :
             ] + (cls.dora_markers(game_state.dora_markers) 
             + cls.scores(game_state.scores, player_id)
             + cls.tehai(player_state.tiles)
-            + cls.tsumo(player_state.tsumo_tile) )
+            + cls.tsumo(player_state.tsumo_tile) 
+            + [cls.begin_record()])
 
         record_feature = [cls.record(r, player_id) for r in mjai_state.records if r["type"] in ("dahai", "reach", "pon", "daiminkan", "kakan", "ankan", "nukidora", "hora", "ryukyoku", "none")]
 
@@ -304,7 +305,7 @@ class MjaiState :
                 uri = record["uri"]
                 self.uri = uri
                 m = re.search("log=\d{10}gm-([0-9a-f]{4})-",uri)
-                if "00b1" == m.group(1) :
+                if m is not None and "00b1" == m.group(1) :
                     self.game_type = 0
         elif record_type == "start_kyoku" :
             self.records = []

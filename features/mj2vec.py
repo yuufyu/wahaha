@@ -478,11 +478,15 @@ class Mj2Vec :
         """
         [FIXME]
         mjaiが出力するmjsonのaction順序は異なっている
+        正しくはdaiminkan, kakan時は打牌した後にドラがめくれる
+        即めくりする暗槓では本現象が発生しない
+        
         暫定的にnextがdoraの場合は無視することにする
         現在のactionがdoraの場合はtsumoと同じ扱いにする
+        
         - 加槓
-            mjaiの動作 : kakan -> tsumo -> dahai -> dora
-            mjson     : kakan -> tsumo -> dora -> dahai
+            mjaiの動作 : (daiminkan|kakan) -> tsumo -> dahai -> dora
+            mjson     : (daiminkan|kakan) -> tsumo -> dora -> dahai
 
         @ref https://gimite.net/pukiwiki/index.php?Mjai%20%E9%BA%BB%E9%9B%80AI%E5%AF%BE%E6%88%A6%E3%82%B5%E3%83%BC%E3%83%90
         """

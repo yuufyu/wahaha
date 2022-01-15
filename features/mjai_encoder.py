@@ -344,7 +344,7 @@ class MjState :
                 uri = record["uri"]
                 self.uri = uri
                 m = re.search("log=\d{10}gm-([0-9a-f]{4})-",uri)
-                if "00b1" == m.group(1) :
+                if m is not None and "00b1" == m.group(1) :
                     self.game_type = 0
         elif record_type == "start_kyoku" :
             self.records = []
