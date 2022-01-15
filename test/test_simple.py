@@ -111,6 +111,10 @@ class TestSimpleEncoder(unittest.TestCase) :
         input_action = {"type":"nukidora","actor":0,"pai":"N"}
         input_player_id = 1
         self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 1218)
+
+    def test_constant(self) :
+        self.assertEqual(TOKEN_VOCAB_COUNT, 1219)
+        self.assertEqual(MAX_TOKEN_LENGTH, 112)
      
 class TestPreprocess(unittest.TestCase) :
     def test_fix_record_kan1(self) :

@@ -344,7 +344,6 @@ class MjaiEncoderClient :
 Constant
 """
 TOKEN_VOCAB_COUNT = MjaiStateEncoder.EOF.offset
-# MAX_TOKEN_LENGTH = 145 # 2(special) + 30(sparse) + 81(progression) + 32(possible)
 MAX_TOKEN_LENGTH = 112 # 2(special) + 29(sparse) + 81(progression)
 
 #EOF
