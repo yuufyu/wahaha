@@ -58,7 +58,7 @@ def parse_argument() :
 async def main() :
     args = parse_argument()
     mjai = MjaiBot(args.model_path)
-    await mjai.open(server = args.host, port = args.port)
+    await mjai.open(host = args.host, port = args.port)
     await mjai.run()
     exit(0)
 
