@@ -46,6 +46,10 @@ class MjaiBot :
             # End of game
             if event["type"] == "end_game" :
                 break
+                
+    async def close(self) :
+        self.writer.close()
+        await self.writer.wait_closed()
 
 def parse_argument() :
     parser = argparse.ArgumentParser()
@@ -60,6 +64,8 @@ async def main() :
     mjai = MjaiBot(args.model_path)
     await mjai.open(host = args.host, port = args.port)
     await mjai.run()
+    await mjai.close()
+    
     exit(0)
 
 if __name__ == '__main__':

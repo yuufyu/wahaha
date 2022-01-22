@@ -68,7 +68,7 @@ def process_records(records) :
                 next_record = next_record = next((r for r in records[i + 1:] if r["type"] in ("dahai", "reach", "hora", "ankan", "kakan", "nukidora", "ryukyoku")), None)
                 actual = Action.encode(next_record)
 
-                # 動作決定点を学習対象に追加
+                # 意思決定ポイントを追加
                 train_data.append((mj_client.encode(player_id), actual))
 
             elif record["type"] == "dahai" and record["actor"] != player_id :
@@ -84,29 +84,17 @@ def process_records(records) :
                     else :
                         actual = Action.encode(next_record)
                     
-                    # 動作決定点を学習対象に追加
+                    # 意思決定ポイントを追加
                     train_data.append((mj_client.encode(player_id), actual))
 
-            elif record["type"] == "nukidora" and record["actor"] != player_id :
-                # 他家の抜きドラ後
+            elif record["type"] in ("ankan", "kakan", "nukidora") and record["actor"] != player_id :
                 next_record = records[i + 1]
-                if next_record["type"] == "hora" and next_record["actor"] == player_id: # 抜きドラをロン
+                if next_record["type"] == "hora" and next_record["actor"] == player_id :
                     actual = Action.encode(next_record)
                 else : # Skip選択
                     actual = Action.encode({"type" : "none"})
 
-                # 動作決定点を学習対象に追加
-                train_data.append((mj_client.encode(player_id), actual))
-
-            elif record["type"] in ("ankan", "kakan") and record["actor"] != player_id :
-                # 他家の暗槓後(槍槓)
-                next_record = records[i + 1]
-                if next_record["type"] == "hora" and next_record["actor"] == player_id: # 抜きドラをロン
-                    actual = Action.encode(next_record)
-                else : # Skip選択
-                    actual = Action.encode({"type" : "none"})
-
-                # 動作決定点を学習対象に追加
+                # 意思決定ポイントを追加
                 train_data.append((mj_client.encode(player_id), actual))
 
     return train_data

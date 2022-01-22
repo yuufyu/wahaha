@@ -255,9 +255,10 @@ class MLMDataModule(pl.LightningDataModule):
 #--------------------------------
 # model = BertModel.from_pretrained('Japanese_L-12_H-768_A-12_E-30_BPE/pytorch_model.bin', config=config)
 class BertClassification(nn.Module) :
-    def __init__(self, model_bin):
+    def __init__(self):
         super().__init__()
-        self.bert = BertForSequenceClassification.from_pretrained(model_bin, config = BERT_CLASSIFICATION_CONFIG)
+        # self.bert = BertForSequenceClassification.from_pretrained(model_bin, config = BERT_CLASSIFICATION_CONFIG)
+        self.bert = BertForSequenceClassification(BERT_CLASSIFICATION_CONFIG)
 
     def forward(self, input_ids, labels):
         outputs = self.bert(input_ids, labels = labels)
@@ -343,13 +344,31 @@ class BertClassificationDataModule(pl.LightningDataModule):
 from torchinfo import summary
 
 def printBertClassification() :
-    model = BertClassification()
+    model = BertForSequenceClassification(BERT_CLASSIFICATION_CONFIG)
     inshape = (1, 10)
     label = torch.LongTensor(np.array([[0]]))
     summary(model, input_size=inshape, labels = label , dtypes=[torch.long], depth = 4)
 
+def printBertForMaskedLM() :
+    model = BertForMaskedLM(BERT_MLM_CONFIG)
+    inshape = (1, 10)
+    label = torch.LongTensor(np.array([[0]*10]))
+    summary(model, input_size=inshape, labels = label , dtypes=[torch.long], depth = 4)
+
+def parameter_freeze() :
+    model = BertForSequenceClassification(BERT_CLASSIFICATION_CONFIG)
+    for name, param in model.named_parameters() :
+         # bert.pooler.*, classifier.*を重み更新する対象(requires_grad=True)とする
+        param.requires_grad = (name.startswith('bert.pooler') or name.startswith('classifier.'))
+
+    for name, param in model.named_parameters(recurse=True) :
+        print(name, param.requires_grad, param.size())
+
+       
 def main() :
-    printBertClassification()
+    parameter_freeze()
+    # printBertClassification()
+    # printBertForMaskedLM()
 
 if __name__ == '__main__':
     main()
