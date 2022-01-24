@@ -74,7 +74,7 @@ def sort_rel_scores(abs_scores, player_id) :
     return [abs_scores[(i + player_id) % 3]  for i in range(3)]
 
 @encode_group
-class Action :
+class RecordAction :
     """
      Encode mjai action
     """
@@ -122,25 +122,13 @@ class Action :
     def nukidora(action) :
         return 0
 
-    @encode_func(1)
-    def hora(action) :
-        return 0
-
-    @encode_func(1)
-    def ryukyoku(action) :
-        return 0
-    
-    @encode_func(1)
-    def none(action) :
-        return 0
-
     @classmethod
     def encode(cls, action) :
         action_type = action["type"]
         action_func = getattr(cls, action_type)
         return action_func(action)
 
-    PLAYER_ACTION_WIDTH = hora.offset
+    # PLAYER_ACTION_WIDTH = hora.offset
 
 # [-48,...,48]
 DELTA_SCORE_MAX = 48
@@ -237,13 +225,13 @@ class MjaiStateEncoder :
 
     @encode_func(215)
     def record_player_0(action) :
-        return Action.encode(action)
+        return RecordAction.encode(action)
     @encode_func(215)
     def record_player_1(action) :
-        return Action.encode(action)
+        return RecordAction.encode(action)
     @encode_func(215)
     def record_player_2(action) :
-        return Action.encode(action)
+        return RecordAction.encode(action)
 
     @classmethod
     def record(cls, action, player_id) :
@@ -277,6 +265,75 @@ class MjaiStateEncoder :
     @encode_func(0)
     def EOF() :
         pass
+
+@encode_group
+class Action :
+    """
+     Encode mjai action
+    """
+    @encode_func(37 * 2)
+    def dahai(action) :
+        pai = action["pai"]
+        tsumogiri = action["tsumogiri"]
+        tile37 = encode_tile37(pai)
+        # 手出し[0,...,36], ツモ切り[37,...,73]
+        if tsumogiri :
+            tile37 += 37
+        return tile37
+
+    @encode_func(1)
+    def reach(action) :
+        return 0
+
+    @encode_func(37)
+    def pon(action) :
+        pai = action["pai"]
+        consumed = action["consumed"]
+        tile37_list = [encode_tile37(pai) for pai in [pai] + consumed]
+        tile37 = min(tile37_list) # 赤ドラ牌を選出する
+        return tile37
+
+    @encode_func(34)
+    def daiminkan(action) :
+        pai = action["pai"]
+        tile34 = encode_tile34(pai)
+        return tile34
+
+    @encode_func(34)
+    def kakan(action) :
+        pai = action["pai"]
+        tile34 = encode_tile34(pai)
+        return tile34
+
+    @encode_func(34)
+    def ankan(action) :
+        consumed = action["consumed"]
+        tile34 = encode_tile34(consumed[0])
+        return tile34
+
+    @encode_func(1)
+    def nukidora(action) :
+        return 0
+
+    @encode_func(1)
+    def hora(action) :
+        return 0
+
+    @encode_func(1)
+    def ryukyoku(action) :
+        return 0
+    
+    @encode_func(1)
+    def none(action) :
+        return 0
+
+    @classmethod
+    def encode(cls, action) :
+        action_type = action["type"]
+        action_func = getattr(cls, action_type)
+        return action_func(action)
+
+    # PLAYER_ACTION_WIDTH = hora.offset
 
 """
 Mahjong game state
