@@ -263,7 +263,7 @@ class MjaiStateEncoder :
         return [cls.token_cls()] + game_feature + record_feature + [cls.token_eos()]
 
     @encode_func(0)
-    def EOF() :
+    def END() :
         pass
 
 @encode_group
@@ -271,14 +271,11 @@ class Action :
     """
      Encode mjai action
     """
-    @encode_func(37 * 2)
+    @encode_func(37)
     def dahai(action) :
         pai = action["pai"]
         tsumogiri = action["tsumogiri"]
         tile37 = encode_tile37(pai)
-        # 手出し[0,...,36], ツモ切り[37,...,73]
-        if tsumogiri :
-            tile37 += 37
         return tile37
 
     @encode_func(1)
@@ -333,7 +330,9 @@ class Action :
         action_func = getattr(cls, action_type)
         return action_func(action)
 
-    # PLAYER_ACTION_WIDTH = hora.offset
+    @encode_func(0)
+    def END() :
+        pass
 
 """
 Mahjong game state
@@ -396,7 +395,8 @@ class MjaiEncoderClient :
 """
 Constant
 """
-TOKEN_VOCAB_COUNT = MjaiStateEncoder.EOF.offset
+TOKEN_VOCAB_COUNT = MjaiStateEncoder.END.offset
 MAX_TOKEN_LENGTH = 112 # 2(special) + 29(sparse) + 81(progression)
+NUM_LABELS = Action.END.offset
 
 #EOF
