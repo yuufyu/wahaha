@@ -128,6 +128,9 @@ class RecordAction :
         action_func = getattr(cls, action_type)
         return action_func(action)
 
+    @encode_func(0)
+    def END() :
+        pass
     # PLAYER_ACTION_WIDTH = hora.offset
 
 # [-48,...,48]
@@ -223,13 +226,13 @@ class MjaiStateEncoder :
             res.append(tile37)
         return res
 
-    @encode_func(215)
+    @encode_func(RecordAction.END.offset)
     def record_player_0(action) :
         return RecordAction.encode(action)
-    @encode_func(215)
+    @encode_func(RecordAction.END.offset)
     def record_player_1(action) :
         return RecordAction.encode(action)
-    @encode_func(215)
+    @encode_func(RecordAction.END.offset)
     def record_player_2(action) :
         return RecordAction.encode(action)
 
@@ -396,7 +399,7 @@ class MjaiEncoderClient :
 Constant
 """
 TOKEN_VOCAB_COUNT = MjaiStateEncoder.END.offset
-MAX_TOKEN_LENGTH = 112 # 2(special) + 29(sparse) + 81(progression)
-NUM_LABELS = Action.END.offset
+MAX_TOKEN_LENGTH  = 112 # Special(3) + Category(6+2+5+14+1) + Record(81)
+NUM_LABELS        = Action.END.offset
 
 #EOF
