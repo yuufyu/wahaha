@@ -8,7 +8,7 @@ from mjlegal.mjai_possible_action import MjaiPossibleActionGenerator
 from mjlegal.mjai import MjaiLoader
 from mjlegal.mjtypes import Tile, TilesUtil
 
-class WidthFunc :
+class EncoderFunction :
     """
     @width指定されたmethodをdecorateするCallable class。
     """
@@ -30,7 +30,7 @@ class WidthFunc :
             result = self.num_offset(result)
         return result
 
-def offset_class(cls) :
+def encode_group(cls) :
     """
     offsetを加算するclass decorator。
     @widthでdecorateされたmethodにoffsetを設定する。
@@ -38,19 +38,19 @@ def offset_class(cls) :
     """
     current_offset = 0
     for width_func in cls.__dict__.values() :
-        if isinstance(width_func, WidthFunc) :
+        if isinstance(width_func, EncoderFunction) :
             width_func.offset = current_offset
             current_offset += width_func.width
     return cls
 
-def width(width) :
+def encode_func(width) :
     """
     offsetを加算するmethod decorator。
     引数に指定した値を使ってoffsetが計算される。
     decoratorが付与されるmethodの戻り値は[0,...,width)の範囲であること。
     """
     def func_width(org_func) :
-        width_func = WidthFunc(org_func, width)
+        width_func = EncoderFunction(org_func, width)
         return width_func
     return func_width
 
@@ -73,12 +73,12 @@ def sort_rel_scores(abs_scores, player_id) :
     # scoreの並び順をplayer_id視点における順序に変更
     return [abs_scores[(i + player_id) % 3]  for i in range(3)]
 
-@offset_class
+@encode_group
 class Action :
     """
      Encode mjai action
     """
-    @width(37 * 2)
+    @encode_func(37 * 2)
     def dahai(action) :
         pai = action["pai"]
         tsumogiri = action["tsumogiri"]
@@ -88,11 +88,11 @@ class Action :
             tile37 += 37
         return tile37
 
-    @width(1)
+    @encode_func(1)
     def reach(action) :
         return 0
 
-    @width(37)
+    @encode_func(37)
     def pon(action) :
         pai = action["pai"]
         consumed = action["consumed"]
@@ -100,38 +100,37 @@ class Action :
         tile37 = min(tile37_list) # 赤ドラ牌を選出する
         return tile37
 
-    @width(34)
+    @encode_func(34)
     def daiminkan(action) :
         pai = action["pai"]
         tile34 = encode_tile34(pai)
         return tile34
 
-    @width(34)
+    @encode_func(34)
     def kakan(action) :
         pai = action["pai"]
         tile34 = encode_tile34(pai)
         return tile34
 
-    @width(34)
+    @encode_func(34)
     def ankan(action) :
         consumed = action["consumed"]
         tile34 = encode_tile34(consumed[0])
         return tile34
 
-    @width(1)
+    @encode_func(1)
     def nukidora(action) :
         return 0
 
-    @width(2)
+    @encode_func(1)
     def hora(action) :
-        # [0,1] 0: ロン, 1: ツモ
-        return int(action["target"] != action["actor"])
+        return 0
 
-    @width(1)
+    @encode_func(1)
     def ryukyoku(action) :
         return 0
     
-    @width(1)
+    @encode_func(1)
     def none(action) :
         return 0
 
@@ -153,83 +152,82 @@ def encode_delta_score(delta_score) :
         k = max(-1 * DELTA_SCORE_MAX, delta) + DELTA_SCORE_MAX
     return k
 
-@offset_class
+@encode_group
 class MjaiStateEncoder :
-    @width(1)
+    @encode_func(1)
     def token_pad() :
         """ Special Token [PAD] """
-        pass
-
-    @width(1)
+        return 0
+    @encode_func(1)
     def token_cls() :
         """ Special Token [CLS] """
         return 0
-
-    @width(1)
+    @encode_func(1)
     def token_sep() :
         """ Special Token [SEP] """
         return 0
+    @encode_func(1)
+    def token_eos() :
+        """ Special Token [EOS] """
+        return 0
+    @encode_func(1)
+    def token_mask() :
+        """ Special Token [MASK] """
+        return 0
+    @encode_func(1)
+    def token_reserve() :
+        pass  # Reserved token 
 
-    @width(2)
+    @encode_func(2)
     def game_type(num) :
         # 0: 東風, 1: 東南
         return num
 
-    @width(3)
+    @encode_func(3)
     def player_id(num) :
         return num
 
-    @width(3)
+    @encode_func(3)
     def bakaze(bakaze_str) :
         return "ESW".index(bakaze_str)
     
-    @width(3)
+    @encode_func(3)
     def kyoku(num) :
         return num - 1
     
-    @width(4)
+    @encode_func(4)
     def honba(num) :
         # [0,...,4)内に切り捨てる
         return min(4 - 1, num)
 
-    @width(3)
+    @encode_func(3)
     def kyotaku(num) :
         return min(3 - 1, num)
 
-    @width(37)
-    def dora_0(dora_marker) :
-        return encode_tile37(dora_marker)
-    @width(37)
-    def dora_1(dora_marker) :
-        return encode_tile37(dora_marker)
-    @width(37)
-    def dora_2(dora_marker) :
-        return encode_tile37(dora_marker)
-    @width(37)
-    def dora_3(dora_marker) :
-        return encode_tile37(dora_marker)
-    @width(37)
-    def dora_4(dora_marker) :
-        return encode_tile37(dora_marker)
-
-    @classmethod
-    def dora_markers(cls, dora_markers_) :
-        return [getattr(cls, "dora_" + str(idx))(pai.to_str()) for idx, pai in enumerate(dora_markers_)]
-
-    @width( (DELTA_SCORE_MAX * 2 + 1) * 2 )
+    @encode_func( (DELTA_SCORE_MAX * 2 + 1) * 2 )
     def scores(scores_, player_id) :
         rel_scores = sort_rel_scores(scores_, player_id)
         deltas = [encode_delta_score(rel_scores[0] - score) for score in rel_scores[1:]]
         return [deltas[0], deltas[1] + (DELTA_SCORE_MAX * 2 + 1)]
+        
+    @encode_func(37)
+    def dora(dora_marker) :
+        return encode_tile37(dora_marker)
 
-    @width(136)
+    @classmethod
+    def dora_markers(cls, dora_markers_) :
+        return [cls.dora(pai.to_str()) for pai in dora_markers_]
+
+
+
+    @encode_func(37)
     def tehai(tiles) :
         # ツモ牌も含む
-        tiles136 = TilesUtil.tiles_to_tiles136(tiles)
-        tiles136.sort()
-        return tiles136
+        encoded_tiles = [encode_tile37(tile.to_str()) for tile in tiles]
+        encoded_tiles.sort()
+        return encoded_tiles
 
-    @width(37)
+    @encode_func(37)
     def tsumo(tsumo_tile) :
         res = []
         if tsumo_tile :
@@ -237,17 +235,13 @@ class MjaiStateEncoder :
             res.append(tile37)
         return res
 
-    @width(1)
-    def begin_record() :
-        return 0
-
-    @width(215)
+    @encode_func(215)
     def record_player_0(action) :
         return Action.encode(action)
-    @width(215)
+    @encode_func(215)
     def record_player_1(action) :
         return Action.encode(action)
-    @width(215)
+    @encode_func(215)
     def record_player_2(action) :
         return Action.encode(action)
 
@@ -268,17 +262,19 @@ class MjaiStateEncoder :
             cls.kyoku(game_state.kyoku),
             cls.honba(game_state.honba),
             cls.kyotaku(game_state.kyotaku)
-            ] + (cls.dora_markers(game_state.dora_markers) 
-            + cls.scores(game_state.scores, player_id)
+            ] + ( 
+            cls.scores(game_state.scores, player_id)
+            + cls.dora_markers(game_state.dora_markers) 
             + cls.tehai(player_state.tiles)
             + cls.tsumo(player_state.tsumo_tile) 
-            + [cls.begin_record()])
+            + [cls.token_sep()]
+            )
 
         record_feature = [cls.record(r, player_id) for r in mjai_state.records if r["type"] in ("dahai", "reach", "pon", "daiminkan", "kakan", "ankan", "nukidora", "hora", "ryukyoku", "none")]
 
-        return [cls.token_cls()] + game_feature + record_feature + [cls.token_sep()]
+        return [cls.token_cls()] + game_feature + record_feature + [cls.token_eos()]
 
-    @width(0)
+    @encode_func(0)
     def EOF() :
         pass
 
@@ -337,7 +333,7 @@ class MjaiEncoderClient :
 
     def encode(self, player_id) :
         features = MjaiStateEncoder.encode(self.state, player_id)
-        assert len(features) <= MAX_TOKEN_LENGTH - 2 , f"Token count is bigger. {MAX_TOKEN_LENGTH}-2 < {len(features)}"
+        assert len(features) <= MAX_TOKEN_LENGTH - 2 , f"Token size is too large than {MAX_TOKEN_LENGTH}-2 < {len(features)}"
         return features
 
 """
