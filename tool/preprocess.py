@@ -56,7 +56,7 @@ def process_records(records) :
         mj_client.update(record)
 
         """
-        手番(動作決定点)
+        手番(意思決定ポイント)
         - 自家のツモ番後
         - 他家の打牌後
         - 他家の抜きドラ後

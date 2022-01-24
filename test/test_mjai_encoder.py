@@ -1,6 +1,6 @@
 import unittest
 from features.mjai_encoder import *
-from mjlegal.mjtypes import Tile, TilesUtil
+from mjlegal.mjtypes import Tile
 from tool.preprocess import fix_records
 
 def test_encode_record(records, player_id) :
@@ -31,9 +31,10 @@ class TestSimpleEncoder(unittest.TestCase) :
             {"type":"tsumo","actor":0,"pai":"2p"}
         ]
         input_player_id = 0
-        expected = [1, 3, 5, 8, 11, 14, 18, 21, 254, 351, 400, 440, 448, 453, 484, 496, 508, 509, 512, 520, 524, 525, 528, 548, 573, 2]
+        expected =  [1, 6, 8, 11, 14, 17, 21, 72, 169, 218, 256, 267, 269, 270, 279, 282, 285, 285, 286, 288, 289, 289, 290, 304, 2, 3]
+        
         feature = test_encode_record(input_records, input_player_id)
-        # print(feature)
+        # print("actual:",feature)
         self.assertEqual(expected, feature)
 
         input_records = [
@@ -42,9 +43,10 @@ class TestSimpleEncoder(unittest.TestCase) :
             {"type":"tsumo","actor":0,"pai":"2p"}
         ]
         input_player_id = 0
-        expected = [1, 4, 5, 8, 11, 14, 18, 21, 254, 351, 400, 440, 448, 453, 484, 496, 508, 509, 512, 520, 524, 525, 528, 548, 573, 2]
+        expected =  [1, 7, 8, 11, 14, 17, 21, 72, 169, 218, 256, 267, 269, 270, 279, 282, 285, 285, 286, 288, 289, 289, 290, 304, 2, 3]
+
         feature = test_encode_record(input_records, input_player_id)
-        # print(feature)
+        # print("actual:",feature)
         self.assertEqual(expected, feature)
 
     def dora_markers(self) :
@@ -79,55 +81,52 @@ class TestSimpleEncoder(unittest.TestCase) :
     def test_score(self) :
         input_scores = [0, 999999, 999999]
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [206, 303])
+        self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [24, 121])
 
         input_player_id = 1
-        self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [206 + 48, 399])
+        self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [24 + 48, 217])
 
         input_player_id = 2
-        self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [302, 303 + 48])
+        self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [120, 121 + 48])
 
         input_scores = [0, -999999, -999999]
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [302, 399])
+        self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [120, 217])
 
     def test_tsumo(self) :
-        self.assertEqual(MjaiStateEncoder.tsumo(Tile.from_str("0m")), [536])
-
-    def test_begin_of_round(self) :
-        self.assertEqual(MjaiStateEncoder.begin_record(), 573)
+        self.assertEqual(MjaiStateEncoder.tsumo(Tile.from_str("0m")), [292])
 
     def test_record(self) :
         input_action = {"type":"dahai","actor":0,"pai":"0m","tsumogiri":False}
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 574)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 329)
         input_action = {"type":"dahai","actor":0,"pai":"0m","tsumogiri":False}
         input_player_id = 2
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 789)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 544)
         input_action = {"type":"dahai","actor":0,"pai":"0m","tsumogiri":False}
         input_player_id = 1
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 1004)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 759)
 
         input_action = {"type":"dahai","actor":0,"pai":"0m","tsumogiri":True}
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 611)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 329 + 37)
 
         input_action = {"type":"reach","actor":0}
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 648)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 403)
 
         input_action = {"type":"nukidora","actor":0,"pai":"N"}
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 788)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 543)
         input_action = {"type":"nukidora","actor":0,"pai":"N"}
         input_player_id = 2
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 1003)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 758)
         input_action = {"type":"nukidora","actor":0,"pai":"N"}
         input_player_id = 1
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 1218)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 973)
 
     def test_constant(self) :
-        self.assertEqual(TOKEN_VOCAB_COUNT, 1219)
+        self.assertEqual(TOKEN_VOCAB_COUNT, 974)
         self.assertEqual(MAX_TOKEN_LENGTH, 112)
      
 class TestPreprocess(unittest.TestCase) :
