@@ -128,7 +128,7 @@ class TestSimpleEncoder(unittest.TestCase) :
     def test_constant(self) :
         self.assertEqual(TOKEN_VOCAB_COUNT, 974)
         self.assertEqual(MAX_TOKEN_LENGTH, 112)
-        self.assertEqual(NUM_LABELS, 181)
+        self.assertEqual(NUM_LABELS, 112)
      
 class TestPreprocess(unittest.TestCase) :
     def test_fix_record_kan1(self) :

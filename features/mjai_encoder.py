@@ -166,8 +166,9 @@ class MjaiStateEncoder :
         """ Special Token [MASK] """
         return 0
     @encode_func(1)
-    def token_reserve() :
-        pass  # Reserved token 
+    def token_unk() :
+        """ Special Token [UNK] """
+        return 0  # Unknown
 
     @encode_func(2)
     def game_type(num) :
@@ -208,8 +209,6 @@ class MjaiStateEncoder :
     @classmethod
     def dora_markers(cls, dora_markers_) :
         return [cls.dora(pai.to_str()) for pai in dora_markers_]
-
-
 
     @encode_func(37)
     def tehai(tiles) :
@@ -285,19 +284,21 @@ class Action :
     def reach(action) :
         return 0
 
-    @encode_func(37)
+    @encode_func(1)
     def pon(action) :
-        pai = action["pai"]
-        consumed = action["consumed"]
-        tile37_list = [encode_tile37(pai) for pai in [pai] + consumed]
-        tile37 = min(tile37_list) # 赤ドラ牌を選出する
-        return tile37
+        # pai = action["pai"]
+        # consumed = action["consumed"]
+        # tile37_list = [encode_tile37(pai) for pai in [pai] + consumed]
+        # tile37 = min(tile37_list) # 赤ドラ牌を選出する
+        # return tile37
+        return 0
 
-    @encode_func(34)
+    @encode_func(1)
     def daiminkan(action) :
-        pai = action["pai"]
-        tile34 = encode_tile34(pai)
-        return tile34
+        #pai = action["pai"]
+        #tile34 = encode_tile34(pai)
+        #return tile34
+        return 0
 
     @encode_func(34)
     def kakan(action) :
