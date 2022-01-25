@@ -101,21 +101,22 @@ def process_records(records) :
 
 def main() :
     parser = argparse.ArgumentParser()
-    parser.add_argument("mjson_filename")
+    parser.add_argument("mjson_filenames",metavar='mjson',nargs='+')
     args = parser.parse_args()
     
-    filename = args.mjson_filename
+    files = args.mjson_filenames
 
-    records = load_mjai_records(filename)
-    fix_records(records)
-    train_list = process_records(records)
-    
-    """
-     [空白区切りデータ], [ラベル]
-    """
-    for train_data in train_list :
-        line = " ".join([str(n) for n in train_data[0]]) + "," + str(train_data[1])
-        print(line)
+    for filename in files :
+        records = load_mjai_records(filename)
+        fix_records(records)
+        train_list = process_records(records)
+        
+        """
+        [空白区切りデータ], [ラベル]
+        """
+        for train_data in train_list :
+            line = " ".join([str(n) for n in train_data[0]]) + "," + str(train_data[1])
+            print(line)
 
 if __name__ == '__main__':
     main()
