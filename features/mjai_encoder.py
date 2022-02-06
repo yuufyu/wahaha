@@ -225,6 +225,15 @@ class MjaiStateEncoder :
             res.append(tile37)
         return res
 
+    @encode_func(8)
+    def possible_actions(possible_types) :
+        res = []
+        actions = ["dahai", "reach", "hora", "ryukyoku", "pon", "daiminkan", "ankan", "kakan"]
+        for idx, action in enumerate(actions) :
+            if action in possible_types :
+                res.append(idx)
+        return res
+
     @encode_func(RecordAction.END.offset)
     def record_player_0(action) :
         return RecordAction.encode(action)
@@ -242,9 +251,10 @@ class MjaiStateEncoder :
         return record_player_action(action)
         
     @classmethod
-    def encode(cls, mjai_state, player_id) :
+    def encode(cls, mjai_state, player_id, possible_actions) :
         game_state = mjai_state.client.game
         player_state = game_state.player_states[player_id]
+        possible_types = set(possible["type"] for possible in possible_actions)
         game_feature = [
             cls.game_type(mjai_state.game_type),
             cls.player_id(player_id),
@@ -256,7 +266,8 @@ class MjaiStateEncoder :
             cls.scores(game_state.scores, player_id)
             + cls.dora_markers(game_state.dora_markers) 
             + cls.tehai(player_state.tiles)
-            + cls.tsumo(player_state.tsumo_tile) 
+            + cls.tsumo(player_state.tsumo_tile)
+            + cls.possible_actions(possible_types)
             + [cls.token_sep()]
             )
 
@@ -286,31 +297,19 @@ class Action :
 
     @encode_func(1)
     def pon(action) :
-        # pai = action["pai"]
-        # consumed = action["consumed"]
-        # tile37_list = [encode_tile37(pai) for pai in [pai] + consumed]
-        # tile37 = min(tile37_list) # 赤ドラ牌を選出する
-        # return tile37
         return 0
 
     @encode_func(1)
     def daiminkan(action) :
-        #pai = action["pai"]
-        #tile34 = encode_tile34(pai)
-        #return tile34
         return 0
 
-    @encode_func(34)
+    @encode_func(1)
     def kakan(action) :
-        pai = action["pai"]
-        tile34 = encode_tile34(pai)
-        return tile34
+        return 0
 
-    @encode_func(34)
+    @encode_func(1)
     def ankan(action) :
-        consumed = action["consumed"]
-        tile34 = encode_tile34(consumed[0])
-        return tile34
+        return 0
 
     @encode_func(1)
     def nukidora(action) :
@@ -392,7 +391,8 @@ class MjaiEncoderClient :
         return possible_mjai_actions
 
     def encode(self, player_id) :
-        features = MjaiStateEncoder.encode(self.state, player_id)
+        possible_actions = self.possible_player_action(player_id)
+        features = MjaiStateEncoder.encode(self.state, player_id, possible_actions)
         assert len(features) <= MAX_TOKEN_LENGTH - 2 , f"Token size is too large than {MAX_TOKEN_LENGTH}-2 < {len(features)}"
         return features
 
@@ -400,7 +400,7 @@ class MjaiEncoderClient :
 Constant
 """
 TOKEN_VOCAB_COUNT = MjaiStateEncoder.END.offset
-MAX_TOKEN_LENGTH  = 112 # Special(3) + Category(6+2+5+14+1) + Record(81)
+MAX_TOKEN_LENGTH  = 117 # Special(3) + Category(6+2+5+14+1+5) + Record(81)
 NUM_LABELS        = Action.END.offset
 
 TRAIN_TOKEN_PAD  = MjaiStateEncoder.token_pad()
