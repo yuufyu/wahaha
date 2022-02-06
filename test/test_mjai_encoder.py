@@ -129,6 +129,13 @@ class TestSimpleEncoder(unittest.TestCase) :
         self.assertEqual(TOKEN_VOCAB_COUNT, 974)
         self.assertEqual(MAX_TOKEN_LENGTH, 112)
         self.assertEqual(NUM_LABELS, 112)
+
+        self.assertEqual(TRAIN_TOKEN_PAD, 0)
+        self.assertEqual(TRAIN_TOKEN_CLS, 1)
+        self.assertEqual(TRAIN_TOKEN_SEP, 2)
+        self.assertEqual(TRAIN_TOKEN_EOS, 3)
+        self.assertEqual(TRAIN_TOKEN_MASK, 4)
+        self.assertEqual(TRAIN_TOKEN_UNK, 5)
      
 class TestPreprocess(unittest.TestCase) :
     def test_fix_record_kan1(self) :

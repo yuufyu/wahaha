@@ -403,4 +403,11 @@ TOKEN_VOCAB_COUNT = MjaiStateEncoder.END.offset
 MAX_TOKEN_LENGTH  = 112 # Special(3) + Category(6+2+5+14+1) + Record(81)
 NUM_LABELS        = Action.END.offset
 
+TRAIN_TOKEN_PAD  = MjaiStateEncoder.token_pad()
+TRAIN_TOKEN_CLS  = MjaiStateEncoder.token_cls()
+TRAIN_TOKEN_SEP  = MjaiStateEncoder.token_sep()
+TRAIN_TOKEN_EOS  = MjaiStateEncoder.token_eos()
+TRAIN_TOKEN_MASK = MjaiStateEncoder.token_mask()
+TRAIN_TOKEN_UNK  = MjaiStateEncoder.token_unk()
+
 #EOF

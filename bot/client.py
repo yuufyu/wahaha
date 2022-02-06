@@ -4,7 +4,7 @@ import copy
 from mjlegal.mjai_possible_action import MjaiPossibleActionGenerator
 from mjlegal.mjai_player_loader import MjaiPlayerLoader
 from .bert import BertClassification
-from features.mjai_encoder import MjaiEncoderClient, Action, MAX_TOKEN_LENGTH
+from features.mjai_encoder import MjaiEncoderClient, Action, MAX_TOKEN_LENGTH, TRAIN_TOKEN_SEP
 
 class Client :
     """
@@ -34,16 +34,16 @@ class Client :
     def choose_action(self) :
         # 合法手から次のアクションを選択する
         possible_actions = self.possible_action_generator.possible_mjai_action(self.possible_client.game)
-        
+        rule_base = self.rule_base_choose_action()
         if len(possible_actions) == 1 :
             choosed_action = possible_actions[0]
-        elif self.rule_base_choose_action() is not None :
-            choosed_action = self.rule_base_choose_action()
+        elif rule_base is not None :
+            choosed_action = rule_base
         elif len(possible_actions) > 1 :
             player_id = self.possible_client.game.player_id
-            input_ids, attention_mask = self.encode(player_id)
+            input_ids, attention_mask, positional_ids = self.encode(player_id)
             
-            logit = self.model.solve(input_ids, attention_mask)
+            logit = self.model.solve(input_ids, attention_mask, positional_ids)
 
             # possible_actionsをエンコード
             possible_action_dict = {Action.encode(action) : action for action in possible_actions}
@@ -73,12 +73,21 @@ class Client :
         return choosed_action
 
     def encode(self, player_id) :
-        input_ids = self.encoder.encode(player_id)
-        pad_length = MAX_TOKEN_LENGTH - len(input_ids)
-        attention_mask = np.array([1] * len(input_ids) + [0] * pad_length)
-        input_ids = np.pad(input_ids, (0, pad_length), constant_values = 0)
+        inputs = self.encoder.encode(player_id)
+        pad_length = MAX_TOKEN_LENGTH - len(inputs)
+        attention_mask = np.array([1] * len(inputs) + [0] * pad_length)
+        inputs = np.array(inputs)
+        
+        # positional ids
+        positional_idx_start = np.where(inputs == TRAIN_TOKEN_SEP)[0][0] - 1
+        positional_arange = np.arange(inputs.shape - positional_idx_start)
+        positional_ids = np.zeros(inputs.shape)
+        positional_ids[positional_idx_start:] = positional_arange
 
-        return input_ids, attention_mask
+        inputs = np.pad(inputs, (0, pad_length), constant_values = 0)
+        positional_ids = np.pad(positional_ids, (0, pad_length), constant_values = 0)
+
+        return inputs, attention_mask, positional_ids
 
     def rule_base_choose_action(self) :
         # 暫定：和了できるときは確定で和了する
