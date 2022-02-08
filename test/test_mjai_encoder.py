@@ -125,6 +125,9 @@ class TestSimpleEncoder(unittest.TestCase) :
         input_player_id = 1
         self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 973 + 8)
 
+    def test_action(self) :
+        self.assertEqual(Action.encode({"type":"reach","actor":0}), 37)
+
     def test_constant(self) :
         self.assertEqual(TOKEN_VOCAB_COUNT, 974 + 8)
         self.assertEqual(MAX_TOKEN_LENGTH, 117)
