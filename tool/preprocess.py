@@ -63,45 +63,51 @@ def process_records(records) :
         - 他家の暗槓後(槍槓)
         """
         for player_id in range(3) :
-            if record["type"] == "tsumo" and record["actor"] == player_id :
-                # 自家のツモ番後
-                next_record = next((r for r in records[i + 1:] if r["type"] != "dora"), None) # doraを飛ばして次のアクションを選択
-                if next_record["type"] in ("dahai", "reach", "hora", "ankan", "kakan", "nukidora", "ryukyoku") :
-                    actual = Action.encode(next_record)
-                
-                    # 意思決定ポイントを追加
-                    train_data.append((mj_client.encode(player_id), actual))
-                    # print(next_record)  #@debug
+            possible_actions = mj_client.possible_player_action(player_id)
+            num_possible_actions = len(possible_actions)
+            if num_possible_actions > 1 :
+                if record["type"] == "tsumo" and record["actor"] == player_id :
+                    # 自家のツモ番後
+                    next_record = next((r for r in records[i + 1:] if r["type"] != "dora"), None) # doraを飛ばして次のアクションを選択
+                    if next_record["type"] in ("dahai", "reach", "hora", "ankan", "kakan", "nukidora", "ryukyoku") :
+                        actual = Action.encode(next_record)
+                    
+                        # 意思決定ポイントを追加
+                        train_data.append((mj_client.encode(player_id), actual, next_record, possible_actions))
 
-            elif record["type"] == "dahai" and record["actor"] != player_id :
-                # 次アクションを選択
-                next_record = next((r for r in records[i + 1:] if r["type"] != "dora"), None) # doraを飛ばして次のアクションを選択
-                # playerが選択しないactionは学習しない
-                if next_record is not None and "actor" in next_record :
-                    # 他家の打牌後
-                    if next_record["type"] in ("tsumo") :# Skip選択
+                elif record["type"] == "dahai" and record["actor"] != player_id :
+                    # 次アクションを選択
+                    next_record = next((r for r in records[i + 1:] if r["type"] != "dora"), None) # doraを飛ばして次のアクションを選択
+                    
+                    #TODO ダブロン対応
+                    
+                    if next_record["type"] == "tsumo" : 
+                        next_record = {"type" : "none"} # 意図的にSkipを選択
+                        actual = Action.encode(next_record)
+
+                        # 意思決定ポイントを追加
+                        train_data.append((mj_client.encode(player_id), actual, next_record, possible_actions))
+
+                    elif next_record["type"] in ("pon", "daiminkan", "hora") :
+                        if player_id == next_record["actor"] :
+                            actual = Action.encode(next_record)
+
+                            # 意思決定ポイントを追加
+                            train_data.append((mj_client.encode(player_id), actual, next_record, possible_actions))
+                        else :
+                            # 鳴こうとしたが他家の動作に阻止和了された場合は意図的な動作でないため学習しない
+                            # (player_id != next_record["actor"])
+                            pass
+
+                elif record["type"] in ("ankan", "kakan", "nukidora") and record["actor"] != player_id :
+                    next_record = records[i + 1]
+                    if next_record["type"] != "hora" or next_record["actor"] != player_id :
                         next_record = {"type" : "none"}
-                    elif player_id != next_record["actor"] : # Skip選択
-                        next_record = {"type" : "none"}
-                    elif next_record["type"] not in ("pon", "daiminkan", "hora") : #自分のアクション
-                        assert False, "Invalid sequence"
 
                     actual = Action.encode(next_record)
 
                     # 意思決定ポイントを追加
-                    train_data.append((mj_client.encode(player_id), actual))
-                    # print(next_record)  #@debug
-
-            elif record["type"] in ("ankan", "kakan", "nukidora") and record["actor"] != player_id :
-                next_record = records[i + 1]
-                if next_record["type"] != "hora" or next_record["actor"] != player_id :
-                    next_record = {"type" : "none"}
-
-                actual = Action.encode(next_record)
-
-                # 意思決定ポイントを追加
-                train_data.append((mj_client.encode(player_id), actual))
-                # print(next_record)  #@debug
+                    train_data.append((mj_client.encode(player_id), actual, next_record, possible_actions))
 
     return train_data
 
@@ -116,6 +122,11 @@ def main() :
         records = load_mjai_records(filename)
         fix_records(records)
         train_list = process_records(records)
+
+        # @debug
+        for train_data in train_list :
+            print(train_data[2], train_data[3])
+        # @debug
         
         """
         [空白区切りデータ], [ラベル]

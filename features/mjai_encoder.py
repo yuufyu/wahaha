@@ -201,6 +201,10 @@ class MjaiStateEncoder :
         rel_scores = sort_rel_scores(scores_, player_id)
         deltas = [encode_delta_score(rel_scores[0] - score) for score in rel_scores[1:]]
         return [deltas[0], deltas[1] + (DELTA_SCORE_MAX * 2 + 1)]
+
+    @encode_func(12)
+    def num_pipais(num) :
+        return max(0, min(num, 12 - 1))
         
     @encode_func(37)
     def dora(dora_marker) :
@@ -251,7 +255,7 @@ class MjaiStateEncoder :
         return record_player_action(action)
         
     @classmethod
-    def encode(cls, mjai_state, player_id, possible_actions) :
+    def encode(cls, mjai_state, player_id, possible_actions, num_pipais) :
         game_state = mjai_state.client.game
         player_state = game_state.player_states[player_id]
         possible_types = set(possible["type"] for possible in possible_actions)
@@ -264,6 +268,7 @@ class MjaiStateEncoder :
             cls.kyotaku(game_state.kyotaku)
             ] + ( 
             cls.scores(game_state.scores, player_id)
+            + [cls.num_pipais(num_pipais)]
             + cls.dora_markers(game_state.dora_markers) 
             + cls.tehai(player_state.tiles)
             + cls.tsumo(player_state.tsumo_tile)
@@ -392,7 +397,7 @@ class MjaiEncoderClient :
 
     def encode(self, player_id) :
         possible_actions = self.possible_player_action(player_id)
-        features = MjaiStateEncoder.encode(self.state, player_id, possible_actions)
+        features = MjaiStateEncoder.encode(self.state, player_id, possible_actions, self.state.client.game.num_pipais)
         assert len(features) <= MAX_TOKEN_LENGTH - 2 , f"Token size is too large than {MAX_TOKEN_LENGTH}-2 < {len(features)}"
         return features
 
