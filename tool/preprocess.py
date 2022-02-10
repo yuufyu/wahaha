@@ -124,8 +124,8 @@ def main() :
         train_list = process_records(records)
 
         # @debug
-        for train_data in train_list :
-            print(train_data[2], train_data[3])
+        # for train_data in train_list :
+        #     print(train_data[2], train_data[3])
         # @debug
         
         """
