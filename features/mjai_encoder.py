@@ -383,8 +383,9 @@ class MjaiEncoderClient :
 
     def update(self, record) :
         self.state.update(record)
+        self.possible_action = [self._possible_player_action(i) for i in range(3)]
 
-    def possible_player_action(self, player_id) :
+    def _possible_player_action(self, player_id) :
         game_state = self.state.client.game
         game_state.player_id = player_id
         possible_mjai_actions = self.possible_generator.possible_mjai_action(game_state)
@@ -394,6 +395,9 @@ class MjaiEncoderClient :
         possible_mjai_actions = [json.loads(action_str) for action_str in set(possible_mjai_json_actions)]
 
         return possible_mjai_actions
+    
+    def possible_player_action(self, player_id) :
+        return self.possible_action[player_id]
 
     def encode(self, player_id) :
         possible_actions = self.possible_player_action(player_id)
