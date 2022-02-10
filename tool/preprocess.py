@@ -95,8 +95,7 @@ def process_records(records) :
                             # 意思決定ポイントを追加
                             train_data.append((mj_client.encode(player_id), actual, next_record, possible_actions))
                         else :
-                            # 鳴こうとしたが他家の動作に阻止和了された場合は意図的な動作でないため学習しない
-                            # (player_id != next_record["actor"])
+                            # 他家に阻止された場合は意図的な動作でないため学習しない
                             pass
 
                 elif record["type"] in ("ankan", "kakan", "nukidora") and record["actor"] != player_id :
@@ -113,11 +112,15 @@ def process_records(records) :
 
 def main() :
     parser = argparse.ArgumentParser()
+    parser.add_argument("-o", "--output_filename")
     parser.add_argument("mjson_filenames",metavar='mjson',nargs='+')
+
     args = parser.parse_args()
     
     files = args.mjson_filenames
+    output_filename = args.output_filename
 
+    res = ""
     for filename in files :
         records = load_mjai_records(filename)
         fix_records(records)
@@ -132,8 +135,13 @@ def main() :
         [空白区切りデータ], [ラベル]
         """
         for train_data in train_list :
-            line = " ".join([str(n) for n in train_data[0]]) + "," + str(train_data[1])
-            print(line)
+            res += " ".join([str(n) for n in train_data[0]]) + "," + str(train_data[1]) + "\n"
+
+    if output_filename :
+        with open(output_filename, "w") as f :
+            f.write(res)
+    else :
+        print(res, end = "")
 
 if __name__ == '__main__':
     main()
