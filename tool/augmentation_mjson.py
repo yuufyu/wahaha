@@ -48,33 +48,38 @@ def augmentation_records(records, *args, **kwargs) :
     for record in aug_records :
         if "tehais" in record :
             tehais = record["tehais"]
-            record["tehais"] = [map(converter, tehai) for tehai in tehais]
+            record["tehais"] = [list(map(converter, tehai)) for tehai in tehais]
         if "pai" in record :
             record["pai"] = converter(record["pai"])
-        if "dora_marker" :
+        if "dora_marker" in record :
             record["dora_marker"] = converter(record["dora_marker"]) 
         if "consumed" in record :
-            record["consumed"] = map(converter, record["consumed"])
+            record["consumed"] = list(map(converter, record["consumed"]))
 
         print(record)
     return aug_records
 
 def main() :
     parser = argparse.ArgumentParser()
-    # parser.add_argument("mjson_filenames",metavar='mjson',nargs='+')
-    parser.add_argument("input_mjson_directory")
-    parser.add_argument("swap_ps", type = bool, default = False)
-    parser.add_argument("swap_manzu", type = bool, default = False)
-    parser.add_argument("shift_sangen", type = int, choice = [0, 1, 2], default = 0)
+    parser.add_argument("mjson_filenames",metavar='mjson',nargs='+')
+    # parser.add_argument("input_mjson_directory")
+    parser.add_argument("--swap_ps", type = bool, default = False)
+    parser.add_argument("--swap_manzu", type = bool, default = False)
+    parser.add_argument("--shift_sangen", type = int, choices = [0, 1, 2], default = 0)
     args = parser.parse_args()
-    dir_path = args.mjson_directory
+    filenames = args.mjson_filenames
+    for filename in filenames :
+        pattern = {'swap_ps' : args.swap_ps, 'swap_manzu' : args.swap_manzu, 'shift_sangen' : args.shift_sangen}
 
-    pattern = {'swap_ps' : args.swap_ps, 'swap_manzu' : args.swap_manzu, 'shift_sangen' : args.swap_sangen}
-    
-    for filename in Path(dir_path).glob("*.mjson") :
         records = load_mjai_records(filename)
         fix_records(records)
         aug_records = augmentation_records(records, **pattern)
+
+   
+#    for filename in Path(dir_path).glob("*.mjson") :
+#        records = load_mjai_records(filename)
+#        fix_records(records)
+#        aug_records = augmentation_records(records, **pattern)
 
 def test() : 
     TEST_PATTERN = [
