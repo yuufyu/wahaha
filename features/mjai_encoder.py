@@ -409,7 +409,7 @@ class MjaiEncoderClient :
 Constant
 """
 TOKEN_VOCAB_COUNT = MjaiStateEncoder.END.offset
-MAX_TOKEN_LENGTH  = 117 # Special(3) + Category(6+2+5+14+1+5) + Record(81)
+MAX_TOKEN_LENGTH  = 118 # Special(3) + Category(6+2+5+14+1+5) + Record(81)
 NUM_LABELS        = Action.END.offset
 
 TRAIN_TOKEN_PAD  = MjaiStateEncoder.token_pad()

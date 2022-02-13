@@ -31,8 +31,8 @@ class TestSimpleEncoder(unittest.TestCase) :
             {"type":"tsumo","actor":0,"pai":"2p"}
         ]
         input_player_id = 0
-        expected =  [1, 6, 8, 11, 14, 17, 21, 72, 169, 218, 256, 267, 269, 270, 279, 282, 285, 285, 286, 288, 289, 289, 290, 304, 329, 2, 3]
-        
+        expected =  [1, 6, 8, 11, 14, 17, 21, 72, 169, 229, 230, 268, 279, 281, 282, 291, 294, 297, 297, 298, 300, 301, 301, 302, 316, 341, 2, 3]
+                    
         feature = test_encode_record(input_records, input_player_id)
         # print("actual:",feature)
         self.assertEqual(expected, feature)
@@ -43,7 +43,7 @@ class TestSimpleEncoder(unittest.TestCase) :
             {"type":"tsumo","actor":0,"pai":"2p"}
         ]
         input_player_id = 0
-        expected =  [1, 7, 8, 11, 14, 17, 21, 72, 169, 218, 256, 267, 269, 270, 279, 282, 285, 285, 286, 288, 289, 289, 290, 304, 329, 2, 3]
+        expected =  [1, 7, 8, 11, 14, 17, 21, 72, 169, 229, 230, 268, 279, 281, 282, 291, 294, 297, 297, 298, 300, 301, 301, 302, 316, 341, 2, 3]
 
         feature = test_encode_record(input_records, input_player_id)
         # print("actual:",feature)
@@ -94,43 +94,43 @@ class TestSimpleEncoder(unittest.TestCase) :
         self.assertEqual(MjaiStateEncoder.scores(input_scores, input_player_id), [120, 217])
 
     def test_tsumo(self) :
-        self.assertEqual(MjaiStateEncoder.tsumo(Tile.from_str("0m")), [292])
+        self.assertEqual(MjaiStateEncoder.tsumo(Tile.from_str("0m")), [292+12])
 
     def test_record(self) :
         input_action = {"type":"dahai","actor":0,"pai":"0m","tsumogiri":False}
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 329 + 8)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 329 + 20)
         input_action = {"type":"dahai","actor":0,"pai":"0m","tsumogiri":False}
         input_player_id = 2
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 544 + 8)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 544 + 20)
         input_action = {"type":"dahai","actor":0,"pai":"0m","tsumogiri":False}
         input_player_id = 1
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 759 + 8)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 759 + 20)
 
         input_action = {"type":"dahai","actor":0,"pai":"0m","tsumogiri":True}
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 329 + 37 + 8)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 329 + 37 + 20)
 
         input_action = {"type":"reach","actor":0}
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 403 + 8)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 403 + 20)
 
         input_action = {"type":"nukidora","actor":0,"pai":"N"}
         input_player_id = 0
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 543 + 8)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 543 + 20)
         input_action = {"type":"nukidora","actor":0,"pai":"N"}
         input_player_id = 2
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 758 + 8)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 758 + 20)
         input_action = {"type":"nukidora","actor":0,"pai":"N"}
         input_player_id = 1
-        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 973 + 8)
+        self.assertEqual(MjaiStateEncoder.record(input_action, input_player_id), 973 + 20)
 
     def test_action(self) :
         self.assertEqual(Action.encode({"type":"reach","actor":0}), 37)
 
     def test_constant(self) :
-        self.assertEqual(TOKEN_VOCAB_COUNT, 974 + 8)
-        self.assertEqual(MAX_TOKEN_LENGTH, 117)
+        self.assertEqual(TOKEN_VOCAB_COUNT, 994)
+        self.assertEqual(MAX_TOKEN_LENGTH, 118)
         self.assertEqual(NUM_LABELS, 46)
 
         self.assertEqual(TRAIN_TOKEN_PAD, 0)
