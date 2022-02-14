@@ -1,7 +1,8 @@
 """
-preprocess
+ augmentation
 """
 import argparse
+import json
 from pathlib import Path
 import copy
 import shutil
@@ -30,7 +31,7 @@ def convert_pai_manzu(pai) :
         pai = MANZU_TABLE[pai]
     return pai
 
-def create_converter(swap_ps = False, swap_manzu = False, shift_sangen = 0) :
+def create_convert_func(swap_ps = False, swap_manzu = False, shift_sangen = 0) :
     # 関数を合成して牌変換関数を作成する
     res = lambda p : convert_pai_sangen(p, shift_sangen)
     if swap_ps :
@@ -43,44 +44,41 @@ def create_converter(swap_ps = False, swap_manzu = False, shift_sangen = 0) :
 
 def augmentation_records(records, *args, **kwargs) :
     aug_records = copy.deepcopy(records)
-    converter = create_converter(*args, **kwargs)
-
+    convert_func = create_convert_func(*args, **kwargs)
+    
+    def convert_pais(pais) :
+        if isinstance(pais, list) :
+            res = list(map(convert_pais, pais))
+        else :
+            res = convert_func(pais)
+        return res
+        
     for record in aug_records :
-        if "tehais" in record :
-            tehais = record["tehais"]
-            record["tehais"] = [list(map(converter, tehai)) for tehai in tehais]
-        if "pai" in record :
-            record["pai"] = converter(record["pai"])
-        if "dora_marker" in record :
-            record["dora_marker"] = converter(record["dora_marker"]) 
-        if "consumed" in record :
-            record["consumed"] = list(map(converter, record["consumed"]))
+        for key, value in record.items() :
+            if key in ("pai", "consumed", "tehais", "dora_marker", "uradora_markers", "hora_tehais") :
+                record[key] = convert_pais(value)
 
-        print(record)
     return aug_records
 
 def main() :
     parser = argparse.ArgumentParser()
-    parser.add_argument("mjson_filenames",metavar='mjson',nargs='+')
-    # parser.add_argument("input_mjson_directory")
-    parser.add_argument("--swap_ps", type = bool, default = False)
-    parser.add_argument("--swap_manzu", type = bool, default = False)
+    parser.add_argument("mjson_filename",metavar='mjson')
+    parser.add_argument("--swap_ps", action = "store_true")
+    parser.add_argument("--swap_manzu", action = "store_true")
     parser.add_argument("--shift_sangen", type = int, choices = [0, 1, 2], default = 0)
+
     args = parser.parse_args()
-    filenames = args.mjson_filenames
-    for filename in filenames :
-        pattern = {'swap_ps' : args.swap_ps, 'swap_manzu' : args.swap_manzu, 'shift_sangen' : args.shift_sangen}
+    filename = args.mjson_filename
+    pattern = {'swap_ps' : args.swap_ps, 'swap_manzu' : args.swap_manzu, 'shift_sangen' : args.shift_sangen}
 
-        records = load_mjai_records(filename)
-        fix_records(records)
-        aug_records = augmentation_records(records, **pattern)
-
+    records = load_mjai_records(filename)
+    fix_records(records)
+    aug_records = augmentation_records(records, **pattern)
+    
+    mjson_str = "\n".join([json.dumps(record) for record in aug_records])
+    
+    print(mjson_str)
    
-#    for filename in Path(dir_path).glob("*.mjson") :
-#        records = load_mjai_records(filename)
-#        fix_records(records)
-#        aug_records = augmentation_records(records, **pattern)
-
 def test() : 
     TEST_PATTERN = [
         {"swap_ps" : False, "swap_manzu" : False, "shift_sangen" : 0},
@@ -92,7 +90,7 @@ def test() :
     ]
     print_convert = lambda p : print(p , "=>", converter(p) )
     for pattern in TEST_PATTERN :
-        converter = create_converter(**pattern)
+        converter = create_convert_func(**pattern)
         print(pattern)
         print_convert("1m")
         print_convert("9m")
