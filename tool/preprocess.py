@@ -58,6 +58,7 @@ def process_records(records) :
         """
         手番(意思決定ポイント)
         - 自家のツモ番後
+        - 自家の立直宣言直後
         - 他家の打牌後
         - 他家の抜きドラ後
         - 他家の暗槓後(槍槓)
@@ -65,7 +66,17 @@ def process_records(records) :
         for player_id in range(3) :
             possible_actions = mj_client.possible_player_action(player_id)
             num_possible_actions = len(possible_actions)
-            if num_possible_actions > 1 :
+            if record["type"] == "reach" :
+                # 自家の立直宣言直後
+                # 立直直後は合法手が1個の場合も学習させる
+                next_record = records[i + 1]
+                assert next_record["type"] == "dahai", "reach without dahai"
+                actual = Action.encode(next_record)
+
+                # 意思決定ポイントを追加
+                train_data.append((mj_client.encode(player_id), actual, next_record, possible_actions))
+
+            elif num_possible_actions > 1 :
                 if record["type"] == "tsumo" and record["actor"] == player_id :
                     # 自家のツモ番後
                     next_record = next((r for r in records[i + 1:] if r["type"] != "dora"), None) # doraを飛ばして次のアクションを選択
