@@ -67,9 +67,9 @@ def process_records(records) :
         for player_id in range(3) :
             # possible_actions = mj_client.possible_player_action(player_id)
             # num_possible_actions = len(possible_actions)
-            if record["type"] == "reach" :
+            if record["type"] == "reach" and record["actor"] == player_id:
                 mj_client.possible_action = [mj_client._possible_player_action(i) for i in range(3)]
-                
+
                 # 自家の立直宣言直後
                 # 立直直後は合法手が1個の場合も学習させる
                 next_record = records[i + 1]
