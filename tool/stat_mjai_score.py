@@ -11,6 +11,24 @@ import dataclasses
 
 NUM_PLAYERS = 3
 
+RESULT_HORA = 1
+RESULT_RYUKYOKU = 2
+
+@dataclasses.dataclass
+class KyokuResult :
+    result_type : int = 0
+    
+    bakaze      : str = None
+    kyoku       : int = 0
+    honba       : int = 0
+    result_mjson : json = None
+
+@dataclasses.dataclass
+class GameResult :
+    uuid : str = None
+    results : list = None
+    names   : list = None
+
 @dataclasses.dataclass
 class PlayerResult :
     count_kyoku : int   = 0
@@ -106,6 +124,8 @@ def merge_game_result(result1, result2) :
 
 def get_result_from_mjson(log_file) :
     result = {}
+    game_result = None
+    kyoku_result = None
     for line in log_file :
         action = json.loads(line)
         action_type = action["type"]
@@ -113,6 +133,9 @@ def get_result_from_mjson(log_file) :
             names = action["names"]
             for name in names :
                 result[name] = PlayerResult()
+            game_result = GameResult(uuid = "", names = names, results = [])
+        elif action_type == "start_kyoku" :
+            kyoku_result = KyokuResult(result_type=0, bakaze = action["bakaze"], kyoku = action["kyoku"], honba = action["honba"], result_mjson=action)
         elif action_type == "reach" :
             actor = action["actor"]
             result[names[actor]].count_reach += 1
@@ -130,18 +153,27 @@ def get_result_from_mjson(log_file) :
                 result[names[target]].total_baojia_score += delta_scores[target]
             else :
                 result[names[actor]].count_tsumo += 1
+
+            kyoku_result.result_type = RESULT_HORA
+            kyoku_result.result_mjson = action
+
         elif action_type == "end_kyoku" :
             for name in names :
                 result[name].count_kyoku += 1
                 if result[name].count_furo > 0 :
                     result[name].count_furo_kyoku += 1
                     result[name].count_furo = 0 # reset count
+            game_result.results.append(kyoku_result)
         elif action_type == "ryukyoku" :
             tenpais = action["tenpais"]
             for i, name in enumerate(names) :
                 result[name].count_draw += 1
                 if tenpais[i] :
                     result[name].count_tenpai_draw += 1
+            
+            kyoku_result.result_type = RESULT_RYUKYOKU
+            kyoku_result.result_mjson = action
+            
         elif action_type == "end_game" :
             scores = action["scores"]
 
@@ -155,7 +187,7 @@ def get_result_from_mjson(log_file) :
             for name, rank in zip(names, ranks) :
                 result[name].count_game += 1
                 result[name].count_ranks[rank] += 1
-    return result
+    return result, game_result
 
 def print_player_result(name, player_result : PlayerResult) :
     count_ranks = player_result.count_ranks
@@ -203,9 +235,26 @@ def main(args) :
     results = {}
     for log_file_name in log_file_list :
         log_file = open(log_file_name, 'r', encoding="utf-8")
-        game_result = get_result_from_mjson(log_file)
-        if all(res.count_game > 0 for name, res in game_result.items()) :
-            results = merge_game_result(game_result, results)
+        player_result, game_result = get_result_from_mjson(log_file)
+        if all(res.count_game > 0 for name, res in player_result.items()) :
+            results = merge_game_result(player_result, results)
+
+        if args.print_result :
+            print(f"file : {log_file_name}")
+            for kyoku_result in game_result.results :
+                action = kyoku_result.result_mjson
+                print("-------------------------------------")
+                print(f"{kyoku_result.bakaze}, {kyoku_result.kyoku}, {kyoku_result.honba}")
+                if kyoku_result.result_type == RESULT_HORA :
+                    res = f"""\
+result : {'ツモ' if action["actor"] == action["target"] else 'ロン'}
+scores : {action['scores']}
+yaku   : {action['yakus']} \
+"""
+                elif kyoku_result.result_type == RESULT_RYUKYOKU :
+                    res = f"result : 流局 "
+                print(res)
+                
         log_file.close()
     
     for name, res in results.items() :
@@ -214,5 +263,6 @@ def main(args) :
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = "Statistics mjai records.")
     parser.add_argument('log_directory', help = "mjai log directory")
+    parser.add_argument('--print_result', action="store_true")
     args = parser.parse_args()
     main(args)
