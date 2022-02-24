@@ -10,7 +10,7 @@ class Client :
     """
     mjai client
     """
-    def __init__(self, model_path, mjai_name = "bot") :
+    def __init__(self, model_path, mjai_name) :
         self.model = BertClassification(model_path)
         self.possible_client = MjaiPlayerLoader()
         self.possible_action_generator = MjaiPossibleActionGenerator()

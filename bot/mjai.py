@@ -9,9 +9,9 @@ import asyncio
 from .client import Client
 
 class MjaiBot :
-    def __init__(self, model_path) :
+    def __init__(self, model_path, name) :
         self.model_path = model_path
-        self.client = Client(self.model_path)
+        self.client = Client(self.model_path, name)
 
     async def open(self, host, port) :
         self.host = host 
@@ -56,12 +56,13 @@ def parse_argument() :
     parser.add_argument("model_path")
     parser.add_argument("--host", type = str, default = "localhost")
     parser.add_argument("--port", type = int, default = 11600)
+    parser.add_argument("--name", type = str, default = "wahaha")
     args = parser.parse_args()
     return args
 
 async def main() :
     args = parse_argument()
-    mjai = MjaiBot(args.model_path)
+    mjai = MjaiBot(args.model_path, name = args.name)
     await mjai.open(host = args.host, port = args.port)
     await mjai.run()
     await mjai.close()
