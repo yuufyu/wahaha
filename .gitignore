@@ -1,3 +1,10 @@
+# Train model
+model/
+mjson/
+mjson*/
+*.npz
+*.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
