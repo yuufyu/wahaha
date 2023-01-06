@@ -102,6 +102,7 @@ Augmentationとして下記の変換を行います。
   - 学習コード：[train/wahaha_tpu.ipynb](train/wahaha_tpu.ipynb)
 
 ## Performance
+Google Colaboratory TPUで7日かけて学習しました。
 
 - 学習データ
   - 天鳳牌譜 鳳凰卓 3人南 (2012 - 2020)
