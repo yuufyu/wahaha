@@ -13,7 +13,7 @@
 天鳳/雀魂が採用している抜きドラ(北)ルールに対応するため、"type":"nukidora"`を導入しています。  
 
 (<-) Server to Client,    (->) Client to Server  
-```
+```example.txt
 <-	{"type":"tsumo","actor":0,"pai":"C"}
 ->	{"type":"nukidora","actor":0,"pai":"N"}
 <-	{"type":"nukidora","actor":0,"pai":"N"}
@@ -91,11 +91,22 @@
 | |ryukyoku|1|44|[44...44]| |-|-|
 | |none(skip)|1|45|[45...45]| |-|-|
 
-## 性能
+## Data Augmentation
+Augmentationとして下記の変換を行います。
+ - 三元牌をシフト(白->發、發->中、中->白)
+ - 筒子と索子を入れ替え
+ - 一萬と九萬を入れ替え
+
+## Enviroment
+- Google Colaboratory TPUを使用しました。
+  - 学習コード：[train/wahaha_tpu.ipynb](train/wahaha_tpu.ipynb)
+
+## Performance
 
 - 学習データ
-	 - 天鳳牌譜 鳳凰卓 3人南 (2012 - 2020)
-    - 約2万半荘
+  - 天鳳牌譜 鳳凰卓 3人南 (2012 - 2020)
+      - 約2万半荘
+     
 - テストデータ
   - 天鳳牌譜 鳳凰卓 3人南 (2011)
 ```
