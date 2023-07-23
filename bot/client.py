@@ -10,11 +10,10 @@ class Client :
     """
     mjai client
     """
-    def __init__(self, model_path, mjai_name) :
+    def __init__(self, model_path, mjai_name, room) :
         self.model = BertClassification(model_path)
         self.possible_client = MjaiPlayerLoader()
-        self.possible_action_generator = MjaiPossibleActionGenerator()
-        self.possible_action_generator.name = mjai_name
+        self.possible_action_generator = MjaiPossibleActionGenerator(mjai_name, room)
         self.encoder = MjaiEncoderClient()
     
     def update_state(self, event) :
