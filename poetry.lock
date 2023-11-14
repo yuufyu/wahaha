@@ -559,6 +559,19 @@ files = [
 ]
 
 [[package]]
+name = "mjlegal"
+version = "0.1.0"
+description = ""
+optional = false
+python-versions = "^3.11"
+files = []
+develop = false
+
+[package.source]
+type = "directory"
+url = "../mjlegal"
+
+[[package]]
 name = "mpmath"
 version = "1.3.0"
 description = "Python library for arbitrary-precision floating-point arithmetic"
@@ -1567,4 +1580,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "4c8ec6076f965385f79395bc3ee80346d5c84f91e6378966776e7f4d559850ba"
+content-hash = "33d42edbeb9687a71613e23999d38843ada8421af66ab19cb6afb79662d666bf"
