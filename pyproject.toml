@@ -13,6 +13,7 @@ torchvision = "^0.16.0"
 transformers = "^4.35.0"
 pytorch-lightning = "^2.1.1"
 torchinfo = "^1.8.0"
+mahjong = "1.1.11"
 
 
 [build-system]

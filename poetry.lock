@@ -479,6 +479,17 @@ docs = ["requests (>=2.0.0)"]
 typing = ["mypy (>=1.0.0)"]
 
 [[package]]
+name = "mahjong"
+version = "1.1.11"
+description = "Mahjong hands calculation"
+optional = false
+python-versions = "*"
+files = [
+    {file = "mahjong-1.1.11-py3-none-any.whl", hash = "sha256:df49f9d04bf5198e1f3e4aacf57eae085820bc5119b73e19ce0d0735e2c9bc8d"},
+    {file = "mahjong-1.1.11.tar.gz", hash = "sha256:d4cf812af011b96bc26fc2016f64c07470914af4a5a2b728b4af852adbdbe68f"},
+]
+
+[[package]]
 name = "markupsafe"
 version = "2.1.3"
 description = "Safely add untrusted strings to HTML/XML markup."
@@ -1556,4 +1567,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "910f2643690c81ffb0693d92b80deaf730519e18aa2bc9840c1ecb98b5d7919d"
+content-hash = "4c8ec6076f965385f79395bc3ee80346d5c84f91e6378966776e7f4d559850ba"
